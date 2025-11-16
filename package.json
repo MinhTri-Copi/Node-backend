@@ -1,0 +1,27 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Node.js-Backend",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon --exec babel-node src/server.js"
+  },
+  "author": "MinhTri.dev",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/core": "7.15.4",
+    "@babel/node": "7.15.4",
+    "@babel/preset-env": "7.15.4",
+    "bcryptjs": "3.0.3",
+    "body-parser": "2.2.0",
+    "dotenv": "17.2.3",
+    "ejs": "3.1.10",
+    "express": "5.1.0",
+    "kill-port": "2.0.1",
+    "mysql2": "3.15.3",
+    "nodemon": "3.1.10",
+    "sequelize": "6.13.0",
+    "sequelize-cli": "6.6.3"
+  }
+}
