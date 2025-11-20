@@ -15,11 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Role.init({
-    Hoten: DataTypes.STRING,
-    email: DataTypes.STRING,
-    matKhau: DataTypes.STRING,
-    ngayTaoTaiKhoan : DataTypes.STRING,
-    lanDangNhapCuoiCung : DataTypes.STRING,
+   TenVaiTro: DataTypes.STRING,
     
   }, {
     sequelize,
