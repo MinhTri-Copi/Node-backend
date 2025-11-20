@@ -29,17 +29,7 @@ const testConnection = async () => {
 
 }
 
-const testConnectionpool = async () => {
-    try {
-        const connection = await pool.getConnection();
-        console.log('✅ Kết nối database MySQL thành công!');
-        connection.release();
-        return true;
-    } catch (error) {
-        console.error('❌ Lỗi kết nối database:', error.message);
-        return false;
-    }
-};
+
 
 
 export  {

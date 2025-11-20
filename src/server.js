@@ -22,7 +22,6 @@ const PORT = process.env.PORT || 8082;
 
 const  testProject = async (app) => {
     await testConnection();
-    await testConnectionpool();
     app.listen(PORT, () => {
         console.log(">>> Project is running on port: " + PORT);
     });
