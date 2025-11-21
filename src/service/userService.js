@@ -1,10 +1,14 @@
-import db from '../models/index.js';
 import {pool} from '../config/connectDB.js';
-
+import db from  '../models/index.js';
 const getUser = async (req,res) => {
-    let user = {};
-    user = await pool.query('SELECT * FROM users WHERE id = 1');
-    return user;
+   //check mooi quan he :
+   let role = await db.Role.findAll({
+    where: {id:1},
+        include: {model: db.User},
+        raw: true,
+        nest: true
+   });
+   console.log(">>>>check role:" ,role);
 };
 
 

@@ -35,5 +35,4 @@ const testConnection = async () => {
 export  {
     pool,
     testConnection,
-    testConnectionpool,
 };

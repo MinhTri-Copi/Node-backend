@@ -9,7 +9,6 @@ const getHelloPage = (req,res) => {
 };
 const printHello = async (req,res) => {
     const user = await userService.getUser();
-    console.log(">>>>>>user: ", user);
     return res.send("Hello word");
 };
 
