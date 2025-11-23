@@ -527,3 +527,6 @@ Quy tac:
 -ko tao them thu muc neu chua co su cho phep cua toi
 
 Bai cua toi se viet API voi server la node va client la react(CORS qua config voi  env.react_url =http://localhost:3000  )
+
+
+Do an cuaa  toi viet web tim viec lam va viet api
