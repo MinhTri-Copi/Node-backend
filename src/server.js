@@ -3,21 +3,16 @@ import configViewEngine from './config/viewEngine.js';
 import initWebRoutes from './routes/web';
 import { testConnection ,testConnectionpool} from './config/connectDB.js';
 import bodyParser from 'body-parser';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import cors from './config/cors';
 require('dotenv').config(); 
 
 const app = express();
 
-//connect to React
-app.use(function(req, res, next) {
-    res.setHeader('Access-Control-Allow-Origin', process.env.REACT_URL);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    next();
-});
-//co
+//connect to ReactS
+cors(app);
+//body Parser
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 //khai bao view engine
 configViewEngine(app);
