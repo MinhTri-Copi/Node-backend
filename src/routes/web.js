@@ -44,6 +44,7 @@ const initWebRoutes = (app) => {
     // API Job Application
     app.post("/api/job-applications", jobApplicationController.applyJob);
     app.get("/api/job-applications/check", jobApplicationController.checkApplied);
+    app.get("/api/job-applications", jobApplicationController.getMyApplications);
     
     app.use("/", router);
 };

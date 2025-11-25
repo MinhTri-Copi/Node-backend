@@ -47,9 +47,39 @@ const checkApplied = async (req, res) => {
     }
 };
 
+const getMyApplications = async (req, res) => {
+    try {
+        const userId = req.query.userId;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        let data = await jobApplicationService.getApplicationsByUser(userId);
+
+        return res.status(200).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
 export default {
     applyJob,
-    checkApplied
+    checkApplied,
+    getMyApplications
 };
 
 

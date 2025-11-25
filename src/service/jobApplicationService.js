@@ -115,6 +115,61 @@ const applyJob = async (data) => {
     }
 };
 
+const getApplicationsByUser = async (userId) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        const applications = await db.JobApplication.findAll({
+            include: [
+                {
+                    model: db.Record,
+                    where: { userId },
+                    attributes: ['id', 'Tieude', 'File_url'],
+                    required: true
+                },
+                {
+                    model: db.JobPosting,
+                    attributes: ['id', 'Tieude', 'Diadiem', 'Luongtoithieu', 'Luongtoida', 'Ngaydang', 'Ngayhethan'],
+                    include: [
+                        {
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty', 'Diachi']
+                        },
+                        {
+                            model: db.Format,
+                            attributes: ['id', 'TenHinhThuc']
+                        }
+                    ]
+                },
+                {
+                    model: db.ApplicationStatus,
+                    attributes: ['id', 'TenTrangThai']
+                }
+            ],
+            order: [['Ngaynop', 'DESC']]
+        });
+
+        return {
+            EM: 'Lấy danh sách đơn ứng tuyển thành công!',
+            EC: 0,
+            DT: applications
+        };
+    } catch (e) {
+        console.log(e);
+        return {
+            EM: 'Lỗi khi lấy danh sách đơn ứng tuyển!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
 const checkApplied = async (userId, jobPostingId) => {
     try {
         if (!userId || !jobPostingId) {
@@ -154,7 +209,8 @@ const checkApplied = async (userId, jobPostingId) => {
 
 export default {
     applyJob,
-    checkApplied
+    checkApplied,
+    getApplicationsByUser
 };
 
 
