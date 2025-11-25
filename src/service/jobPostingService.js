@@ -1,98 +1,123 @@
 import db from '../models/index';
 
 // Get list of job postings with pagination and filters
+// QUERY FROM MajorJobPosting table
 const getListJobPosting = async (page, limit, filters = {}) => {
     try {
-        let offset = (page - 1) * limit;
-        
-        // Build where clause based on filters
-        let whereClause = {
-            Trangthai: 1 // Only active jobs
+        // Build where clause for JobPosting
+        let jobPostingWhere = {
+            TrangthaiId: 1 // Only active jobs (ACTIVE status)
         };
 
         // Filter by location
         if (filters.location) {
-            whereClause.Diadiem = {
+            jobPostingWhere.Diadiem = {
                 [db.Sequelize.Op.like]: `%${filters.location}%`
             };
         }
 
         // Filter by experience
         if (filters.experience) {
-            whereClause.Kinhnghiem = {
+            jobPostingWhere.Kinhnghiem = {
                 [db.Sequelize.Op.like]: `%${filters.experience}%`
             };
         }
 
         // Filter by salary range
         if (filters.minSalary) {
-            whereClause.Luongtoithieu = {
+            jobPostingWhere.Luongtoithieu = {
                 [db.Sequelize.Op.gte]: filters.minSalary
             };
         }
 
         // Search by keyword (title or description)
         if (filters.keyword) {
-            whereClause[db.Sequelize.Op.or] = [
+            jobPostingWhere[db.Sequelize.Op.or] = [
                 { Tieude: { [db.Sequelize.Op.like]: `%${filters.keyword}%` } },
                 { Mota: { [db.Sequelize.Op.like]: `%${filters.keyword}%` } }
             ];
         }
 
-        const { count, rows } = await db.JobPosting.findAndCountAll({
-            where: whereClause,
-            offset: offset,
-            limit: limit,
-            order: [['Ngaydang', 'DESC']],
+        // Build where clause for MajorJobPosting
+        let majorJobPostingWhere = {};
+        if (filters.majorId) {
+            majorJobPostingWhere.majorId = filters.majorId;
+        }
+
+        // Query from MajorJobPosting table
+        const rows = await db.MajorJobPosting.findAll({
+            where: majorJobPostingWhere,
             include: [
                 {
-                    model: db.Company,
-                    attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+                    model: db.JobPosting,
+                    where: jobPostingWhere,
+                    required: true, // INNER JOIN - chỉ lấy job postings có major
+                    include: [
+                        {
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+                        },
+                        {
+                            model: db.Format,
+                            attributes: ['id', 'TenHinhThuc']
+                        },
+                        {
+                            model: db.JobPostingStatus,
+                            attributes: ['id', 'TenTrangThai']
+                        },
+                        {
+                            model: db.Recruiter,
+                            attributes: ['id', 'Chucvu', 'SDT'],
+                            include: [{
+                                model: db.User,
+                                attributes: ['id', 'Hoten', 'email']
+                            }]
+                        }
+                    ]
                 },
                 {
-                    model: db.Format,
-                    attributes: ['id', 'TenHinhThuc']
-                },
-                {
-                    model: db.Recruiter,
-                    attributes: ['id', 'Chucvu', 'SDT'],
-                    include: [{
-                        model: db.User,
-                        attributes: ['id', 'Hoten', 'email']
-                    }]
+                    model: db.Major,
+                    attributes: ['id', 'TenNghanhNghe']
                 }
             ],
-            distinct: true
+            order: [[db.JobPosting, 'Ngaydang', 'DESC']]
         });
 
-        // Get majors for each job posting
-        const jobsWithMajors = await Promise.all(rows.map(async (job) => {
-            const jobData = job.toJSON();
+        // Group by job posting ID to avoid duplicates (vì 1 job có nhiều majors)
+        const jobMap = new Map();
+        
+        rows.forEach(row => {
+            const data = row.toJSON();
+            const jobPosting = data.JobPosting;
+            const major = data.Major;
             
-            // Get majors through MajorJobPosting
-            const majors = await db.MajorJobPosting.findAll({
-                where: { jobPostingId: job.id },
-                include: [{
-                    model: db.Major,
-                    attributes: ['id', 'TenHinhThuc']
-                }],
-                raw: true,
-                nest: true
-            });
+            if (!jobMap.has(jobPosting.id)) {
+                jobPosting.majors = [];
+                jobMap.set(jobPosting.id, jobPosting);
+            }
+            
+            // Add major to the job posting
+            if (major) {
+                jobMap.get(jobPosting.id).majors.push(major);
+            }
+        });
 
-            jobData.majors = majors.map(m => m.Major);
-            return jobData;
-        }));
-
-        let totalPages = Math.ceil(count / limit);
+        // Convert map to array and apply pagination manually
+        const allJobs = Array.from(jobMap.values());
+        const totalRows = allJobs.length;
+        
+        // Apply pagination
+        let offset = (page - 1) * limit;
+        const paginatedJobs = allJobs.slice(offset, offset + limit);
+        const totalPages = Math.ceil(totalRows / limit);
 
         return {
             EM: 'Lấy danh sách tin tuyển dụng thành công!',
             EC: 0,
             DT: {
-                totalRows: count,
+                totalRows: totalRows,
                 totalPages: totalPages,
-                jobs: jobsWithMajors
+                jobs: paginatedJobs
             }
         };
     } catch (e) {
@@ -100,7 +125,7 @@ const getListJobPosting = async (page, limit, filters = {}) => {
         return {
             EM: 'Lỗi khi lấy danh sách tin tuyển dụng!',
             EC: -1,
-            DT: ''
+            DT: []
         };
     }
 };
@@ -128,6 +153,10 @@ const getJobPostingById = async (id) => {
                     attributes: ['id', 'TenHinhThuc']
                 },
                 {
+                    model: db.JobPostingStatus,
+                    attributes: ['id', 'TenTrangThai']
+                },
+                {
                     model: db.Recruiter,
                     attributes: ['id', 'Chucvu', 'SDT'],
                     include: [{
@@ -153,7 +182,7 @@ const getJobPostingById = async (id) => {
             where: { jobPostingId: id },
             include: [{
                 model: db.Major,
-                attributes: ['id', 'TenHinhThuc']
+                attributes: ['id', 'TenNghanhNghe']
             }],
             raw: true,
             nest: true
@@ -196,7 +225,7 @@ const createJobPosting = async (data) => {
             Luongtoithieu: data.Luongtoithieu,
             Luongtoida: data.Luongtoida,
             Kinhnghiem: data.Kinhnghiem,
-            Trangthai: data.Trangthai || 1,
+            TrangthaiId: data.TrangthaiId || 1, // Default: ACTIVE
             Ngaydang: new Date(),
             Ngayhethan: data.Ngayhethan,
             companyId: data.companyId,
@@ -258,7 +287,7 @@ const updateJobPosting = async (id, data) => {
                 Luongtoithieu: data.Luongtoithieu !== undefined ? data.Luongtoithieu : job.Luongtoithieu,
                 Luongtoida: data.Luongtoida !== undefined ? data.Luongtoida : job.Luongtoida,
                 Kinhnghiem: data.Kinhnghiem || job.Kinhnghiem,
-                Trangthai: data.Trangthai !== undefined ? data.Trangthai : job.Trangthai,
+                TrangthaiId: data.TrangthaiId !== undefined ? data.TrangthaiId : job.TrangthaiId,
                 Ngayhethan: data.Ngayhethan || job.Ngayhethan,
                 formatId: data.formatId || job.formatId
             },

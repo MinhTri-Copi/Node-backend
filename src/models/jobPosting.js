@@ -14,6 +14,7 @@ module.exports = (sequelize, DataTypes) => {
             JobPosting.belongsTo(models.Company, { foreignKey: 'companyId' });
             JobPosting.belongsTo(models.Recruiter, { foreignKey: 'recruiterId' });
             JobPosting.belongsTo(models.Format, { foreignKey: 'formatId' });
+            JobPosting.belongsTo(models.JobPostingStatus, { foreignKey: 'TrangthaiId' });
             JobPosting.hasMany(models.JobApplication, { foreignKey: 'jobPostingId' });
 
             JobPosting.belongsToMany(models.Major, {
@@ -34,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
         Luongtoida: DataTypes.DECIMAL(12, 2),
 
         Kinhnghiem: DataTypes.STRING(100),
-        Trangthai: DataTypes.TINYINT,
+        TrangthaiId: DataTypes.INTEGER,
 
         Ngaydang: DataTypes.DATE,          // datetime -> DataTypes.DATE
         Ngayhethan: DataTypes.DATE,        // datetime -> DataTypes.DATE
