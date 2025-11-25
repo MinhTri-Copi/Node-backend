@@ -4,6 +4,7 @@ import loginRegisterController from '../controller/loginRegisterController';
 import companyController from '../controller/companyController';
 import recordController from '../controller/recordController';
 import jobPostingController from '../controller/jobPostingController';
+import jobApplicationController from '../controller/jobApplicationController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -39,6 +40,10 @@ const initWebRoutes = (app) => {
     app.post("/api/jobs", jobPostingController.createJobPosting);
     app.put("/api/jobs/:id", jobPostingController.updateJobPosting);
     app.delete("/api/jobs/:id", jobPostingController.deleteJobPosting);
+
+    // API Job Application
+    app.post("/api/job-applications", jobApplicationController.applyJob);
+    app.get("/api/job-applications/check", jobApplicationController.checkApplied);
     
     app.use("/", router);
 };
