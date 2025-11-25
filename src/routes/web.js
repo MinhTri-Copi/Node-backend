@@ -5,6 +5,8 @@ import companyController from '../controller/companyController';
 import recordController from '../controller/recordController';
 import jobPostingController from '../controller/jobPostingController';
 import jobApplicationController from '../controller/jobApplicationController';
+import hrController from '../controller/hrController';
+import utilityController from '../controller/utilityController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -45,6 +47,19 @@ const initWebRoutes = (app) => {
     app.post("/api/job-applications", jobApplicationController.applyJob);
     app.get("/api/job-applications/check", jobApplicationController.checkApplied);
     app.get("/api/job-applications", jobApplicationController.getMyApplications);
+
+    // API HR Dashboard
+    app.get("/api/hr/dashboard", hrController.getDashboard);
+    app.get("/api/hr/job-postings", hrController.getMyJobPostings);
+    app.get("/api/hr/job-postings/detail", hrController.getJobPostingDetail);
+    app.post("/api/hr/job-postings", hrController.createJobPosting);
+    app.put("/api/hr/job-postings/:jobId", hrController.updateJobPosting);
+    app.delete("/api/hr/job-postings/:jobId", hrController.deleteJobPosting);
+
+    // API Utilities
+    app.get("/api/majors", utilityController.getAllMajors);
+    app.get("/api/formats", utilityController.getAllFormats);
+    app.get("/api/job-posting-statuses", utilityController.getAllJobPostingStatuses);
     
     app.use("/", router);
 };
