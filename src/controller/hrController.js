@@ -178,13 +178,142 @@ const updateJobPosting = async (req, res) => {
     }
 };
 
+const getJobApplications = async (req, res) => {
+    try {
+        const { userId, statusId = 'all', page = 1, limit = 10, search = '' } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        const filters = {
+            statusId,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            search: search.trim()
+        };
+
+        const data = await hrService.getJobApplicationsForHr(userId, filters);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
+const getApplicationStatistics = async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        const data = await hrService.getApplicationStatistics(userId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
+const getApplicationDetail = async (req, res) => {
+    try {
+        const { userId, applicationId } = req.query;
+
+        if (!userId || !applicationId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        const data = await hrService.getApplicationDetail(userId, applicationId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
+const updateApplicationStatus = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { applicationId } = req.params;
+        const { statusId } = req.body;
+
+        if (!userId || !applicationId || !statusId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        const data = await hrService.updateApplicationStatus(userId, applicationId, statusId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
 export default {
     getDashboard,
     getMyJobPostings,
     getJobPostingDetail,
     deleteJobPosting,
     createJobPosting,
-    updateJobPosting
+    updateJobPosting,
+    getJobApplications,
+    getApplicationStatistics,
+    getApplicationDetail,
+    updateApplicationStatus
 };
 
 

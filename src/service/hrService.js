@@ -591,13 +591,459 @@ const updateJobPostingForHr = async (userId, jobId, data) => {
     }
 };
 
+/**
+ * Get list of job applications for HR's job postings
+ * @param {number} userId - The HR user ID
+ * @param {object} filters - Filter options (status, page, limit)
+ * @returns {object} - Applications list with pagination
+ */
+const getJobApplicationsForHr = async (userId, filters = {}) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        // Get recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: ''
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get job postings for these recruiters
+        const jobPostings = await db.JobPosting.findAll({
+            where: { recruiterId: recruiterIds },
+            attributes: ['id']
+        });
+
+        if (!jobPostings || jobPostings.length === 0) {
+            return {
+                EM: 'Chưa có tin tuyển dụng nào!',
+                EC: 3,
+                DT: {
+                    applications: [],
+                    totalRows: 0,
+                    totalPages: 0,
+                    currentPage: 1
+                }
+            };
+        }
+
+        const jobPostingIds = jobPostings.map(jp => jp.id);
+
+        // Build where clause
+        const whereClause = {
+            jobPostingId: jobPostingIds
+        };
+
+        // Filter by status if provided
+        if (filters.statusId && filters.statusId !== 'all') {
+            whereClause.applicationStatusId = filters.statusId;
+        }
+
+        // Build include with search
+        const includeOptions = [
+            {
+                model: db.JobPosting,
+                attributes: ['id', 'Tieude', 'Mota', 'Luongtoithieu', 'Luongtoida', 'Ngaydang', 'Ngayhethan'],
+                include: [
+                    {
+                        model: db.Company,
+                        attributes: ['id', 'Tencongty', 'Diachi']
+                    },
+                    {
+                        model: db.Format,
+                        attributes: ['id', 'TenHinhThuc']
+                    }
+                ],
+                ...(filters.search && {
+                    where: {
+                        [Op.or]: [
+                            { Tieude: { [Op.like]: `%${filters.search}%` } }
+                        ]
+                    }
+                })
+            },
+            {
+                model: db.ApplicationStatus,
+                attributes: ['id', 'TenTrangThai']
+            },
+            {
+                model: db.Record,
+                attributes: ['id', 'Tieude', 'File_url', 'userId'],
+                include: [
+                    {
+                        model: db.User,
+                        attributes: ['id', 'Hoten', 'email', 'SDT'],
+                        ...(filters.search && {
+                            where: {
+                                [Op.or]: [
+                                    { Hoten: { [Op.like]: `%${filters.search}%` } },
+                                    { email: { [Op.like]: `%${filters.search}%` } },
+                                    { SDT: { [Op.like]: `%${filters.search}%` } }
+                                ]
+                            }
+                        })
+                    }
+                ]
+            }
+        ];
+
+        // Pagination
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        // Get total count
+        const totalRows = await db.JobApplication.count({
+            where: whereClause,
+            include: includeOptions,
+            distinct: true
+        });
+
+        // Get applications with full details
+        const applications = await db.JobApplication.findAll({
+            where: whereClause,
+            include: includeOptions,
+            order: [['createdAt', 'DESC']],
+            limit: limit,
+            offset: offset,
+            distinct: true
+        });
+
+        const totalPages = Math.ceil(totalRows / limit);
+
+        return {
+            EM: 'Lấy danh sách ứng viên thành công!',
+            EC: 0,
+            DT: {
+                applications: applications,
+                totalRows: totalRows,
+                totalPages: totalPages,
+                currentPage: page
+            }
+        };
+
+    } catch (error) {
+        console.error('Error in getJobApplicationsForHr:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách ứng viên!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
+/**
+ * Get statistics for job applications
+ * @param {number} userId - The HR user ID
+ * @returns {object} - Application statistics
+ */
+const getApplicationStatistics = async (userId) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        // Get recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: {
+                    total: 0,
+                    pending: 0,
+                    approved: 0,
+                    rejected: 0
+                }
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get job postings for these recruiters
+        const jobPostings = await db.JobPosting.findAll({
+            where: { recruiterId: recruiterIds },
+            attributes: ['id']
+        });
+
+        if (!jobPostings || jobPostings.length === 0) {
+            return {
+                EM: 'Chưa có tin tuyển dụng nào!',
+                EC: 3,
+                DT: {
+                    total: 0,
+                    pending: 0,
+                    approved: 0,
+                    rejected: 0
+                }
+            };
+        }
+
+        const jobPostingIds = jobPostings.map(jp => jp.id);
+
+        // Get statistics
+        const [total, pending, approved, rejected] = await Promise.all([
+            db.JobApplication.count({
+                where: { jobPostingId: jobPostingIds }
+            }),
+            db.JobApplication.count({
+                where: { 
+                    jobPostingId: jobPostingIds,
+                    applicationStatusId: 1 // Đang chờ
+                }
+            }),
+            db.JobApplication.count({
+                where: { 
+                    jobPostingId: jobPostingIds,
+                    applicationStatusId: 4 // Đã xét duyệt
+                }
+            }),
+            db.JobApplication.count({
+                where: { 
+                    jobPostingId: jobPostingIds,
+                    applicationStatusId: 3 // Từ chối
+                }
+            })
+        ]);
+
+        return {
+            EM: 'Lấy thống kê thành công!',
+            EC: 0,
+            DT: {
+                total,
+                pending,
+                approved,
+                rejected
+            }
+        };
+
+    } catch (error) {
+        console.error('Error in getApplicationStatistics:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy thống kê!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
+/**
+ * Get detail of a specific job application
+ * @param {number} userId - The HR user ID
+ * @param {number} applicationId - The application ID
+ * @returns {object} - Application details
+ */
+const getApplicationDetail = async (userId, applicationId) => {
+    try {
+        if (!userId || !applicationId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        // Get recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: ''
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get application with full details
+        const application = await db.JobApplication.findOne({
+            where: { id: applicationId },
+            include: [
+                {
+                    model: db.JobPosting,
+                    attributes: ['id', 'Tieude', 'Mota', 'Luongtoithieu', 'Luongtoida', 'Ngaydang', 'Ngayhethan', 'Kinhnghiem', 'Diadiem', 'recruiterId'],
+                    include: [
+                        {
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty', 'Diachi', 'Website', 'Mota']
+                        },
+                        {
+                            model: db.Format,
+                            attributes: ['id', 'TenHinhThuc']
+                        }
+                    ]
+                },
+                {
+                    model: db.ApplicationStatus,
+                    attributes: ['id', 'TenTrangThai']
+                },
+                {
+                    model: db.Record,
+                    attributes: ['id', 'Tieude', 'File_url', 'Ngaytao', 'userId'],
+                    include: [
+                        {
+                            model: db.User,
+                            attributes: ['id', 'Hoten', 'email', 'SDT']
+                        }
+                    ]
+                }
+            ]
+        });
+
+        if (!application) {
+            return {
+                EM: 'Không tìm thấy đơn ứng tuyển!',
+                EC: 3,
+                DT: ''
+            };
+        }
+
+        // Check if this application belongs to HR's job postings
+        if (!recruiterIds.includes(application.JobPosting.recruiterId)) {
+            return {
+                EM: 'Bạn không có quyền xem đơn ứng tuyển này!',
+                EC: 4,
+                DT: ''
+            };
+        }
+
+        return {
+            EM: 'Lấy chi tiết đơn ứng tuyển thành công!',
+            EC: 0,
+            DT: application
+        };
+
+    } catch (error) {
+        console.error('Error in getApplicationDetail:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy chi tiết đơn ứng tuyển!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
+/**
+ * Update application status (Approve/Reject)
+ * @param {number} userId - The HR user ID
+ * @param {number} applicationId - The application ID
+ * @param {number} newStatusId - The new status ID
+ * @returns {object} - Result
+ */
+const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
+    try {
+        if (!userId || !applicationId || !newStatusId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        // Get recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: ''
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get application
+        const application = await db.JobApplication.findOne({
+            where: { id: applicationId },
+            include: [
+                {
+                    model: db.JobPosting,
+                    attributes: ['id', 'recruiterId']
+                }
+            ]
+        });
+
+        if (!application) {
+            return {
+                EM: 'Không tìm thấy đơn ứng tuyển!',
+                EC: 3,
+                DT: ''
+            };
+        }
+
+        // Check ownership
+        if (!recruiterIds.includes(application.JobPosting.recruiterId)) {
+            return {
+                EM: 'Bạn không có quyền cập nhật đơn ứng tuyển này!',
+                EC: 4,
+                DT: ''
+            };
+        }
+
+        // Update status
+        await application.update({
+            applicationStatusId: newStatusId,
+            Ngaycapnhat: new Date()
+        });
+
+        return {
+            EM: 'Cập nhật trạng thái thành công!',
+            EC: 0,
+            DT: application
+        };
+
+    } catch (error) {
+        console.error('Error in updateApplicationStatus:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật trạng thái!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
 export default {
     getDashboardData,
     getMyJobPostings,
     getJobPostingDetailForHr,
     deleteJobPostingForHr,
     createJobPostingForHr,
-    updateJobPostingForHr
+    updateJobPostingForHr,
+    getJobApplicationsForHr,
+    getApplicationStatistics,
+    getApplicationDetail,
+    updateApplicationStatus
 };
 
 
