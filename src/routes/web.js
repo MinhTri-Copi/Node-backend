@@ -3,6 +3,7 @@ import helloController from '../controller/helloController';
 import loginRegisterController from '../controller/loginRegisterController';
 import companyController from '../controller/companyController';
 import recordController from '../controller/recordController';
+import jobPostingController from '../controller/jobPostingController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -31,6 +32,13 @@ const initWebRoutes = (app) => {
     
     // API Upload CV
     app.post("/api/upload-cv", upload.single('cv'), recordController.uploadCV);
+    
+    // API Job Posting
+    app.get("/api/jobs", jobPostingController.getListJobPosting);
+    app.get("/api/jobs/:id", jobPostingController.getJobPostingById);
+    app.post("/api/jobs", jobPostingController.createJobPosting);
+    app.put("/api/jobs/:id", jobPostingController.updateJobPosting);
+    app.delete("/api/jobs/:id", jobPostingController.deleteJobPosting);
     
     app.use("/", router);
 };

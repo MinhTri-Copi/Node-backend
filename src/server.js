@@ -4,6 +4,7 @@ import initWebRoutes from './routes/web';
 import { testConnection ,testConnectionpool} from './config/connectDB.js';
 import bodyParser from 'body-parser';
 import cors from './config/cors';
+import path from 'path';
 require('dotenv').config(); 
 
 const app = express();
@@ -13,6 +14,9 @@ cors(app);
 //body Parser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 //khai bao view engine
 configViewEngine(app);

@@ -19,7 +19,6 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Recruiter.init({
-       Hoten: DataTypes.STRING,
     Chucvu: DataTypes.STRING,
     SDT: DataTypes.STRING,
     userId: DataTypes.INTEGER,

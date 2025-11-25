@@ -2,25 +2,53 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-// Create uploads directory if not exists
-const uploadDir = './src/public/uploads/cv';
+// Create uploads directory with absolute path (CommonJS compatible)
+const uploadDir = path.resolve(__dirname, '..', 'public', 'uploads', 'cv');
+
+// Create directory if not exists
 if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+    try {
+        fs.mkdirSync(uploadDir, { recursive: true });
+        console.log('✓ Created upload directory:', uploadDir);
+    } catch (error) {
+        console.error('❌ Error creating upload directory:', error);
+    }
 }
 
 // Configure storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
+        // Ensure directory exists before saving
+        if (!fs.existsSync(uploadDir)) {
+            try {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            } catch (error) {
+                console.error('Error creating directory:', error);
+            }
+        }
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        // Generate unique filename: userId_timestamp_originalname
-        const userId = req.body.userId || 'user';
-        const timestamp = Date.now();
-        const ext = path.extname(file.originalname);
-        const nameWithoutExt = path.basename(file.originalname, ext);
-        const sanitizedName = nameWithoutExt.replace(/[^a-zA-Z0-9]/g, '_');
-        cb(null, `${userId}_${timestamp}_${sanitizedName}${ext}`);
+        try {
+            // Generate unique filename: userId_timestamp_originalname
+            const userId = req.body.userId || 'user';
+            const timestamp = Date.now();
+            const ext = path.extname(file.originalname);
+            const nameWithoutExt = path.basename(file.originalname, ext);
+            // Remove all special characters, spaces, and Vietnamese characters
+            const sanitizedName = nameWithoutExt
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remove Vietnamese diacritics
+                .replace(/[^a-zA-Z0-9]/g, '_')    // Replace special chars with underscore
+                .replace(/_+/g, '_');             // Replace multiple underscores with single
+            
+            const finalName = `${userId}_${timestamp}_${sanitizedName}${ext}`;
+            console.log('💾 Saving file as:', finalName);
+            cb(null, finalName);
+        } catch (error) {
+            console.error('Error generating filename:', error);
+            cb(error);
+        }
     }
 });
 
@@ -47,4 +75,3 @@ const upload = multer({
 });
 
 export default upload;
-
