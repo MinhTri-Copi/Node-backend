@@ -56,6 +56,7 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/job-postings", hrController.createJobPosting);
     app.put("/api/hr/job-postings/:jobId", hrController.updateJobPosting);
     app.delete("/api/hr/job-postings/:jobId", hrController.deleteJobPosting);
+    app.get("/api/hr/my-companies", hrController.getMyCompanies);
 
     // API HR Candidate Management
     app.get("/api/hr/active-jobs", hrController.getActiveJobPostings); // Get job postings with applications

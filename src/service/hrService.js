@@ -225,6 +225,7 @@ const getMyJobPostings = async (userId, page = 1, limit = 10) => {
                     attributes: ['id', 'TenNghanhNghe']
                 }
             ],
+        
             distinct: true,
             col: 'jobPostingId',
             offset: offset,
@@ -424,6 +425,64 @@ const deleteJobPostingForHr = async (userId, jobId) => {
             EM: 'Lỗi khi xóa tin tuyển dụng!',
             EC: -1,
             DT: ''
+        };
+    }
+};
+
+/**
+ * Get companies that HR can create job postings for
+ * @param {number} userId - HR user ID
+ * @returns {object} - List of companies
+ */
+const getMyCompaniesForHr = async (userId) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: []
+            };
+        }
+
+        // Get all recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            include: [{
+                model: db.Company,
+                attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+            }],
+            attributes: ['id', 'companyId']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: []
+            };
+        }
+
+        // Extract unique companies
+        const companies = [];
+        const companyMap = new Map();
+        recruiters.forEach(recruiter => {
+            if (recruiter.Company && !companyMap.has(recruiter.Company.id)) {
+                companyMap.set(recruiter.Company.id, recruiter.Company);
+                companies.push(recruiter.Company);
+            }
+        });
+
+        return {
+            EM: 'Lấy danh sách công ty thành công!',
+            EC: 0,
+            DT: companies
+        };
+    } catch (error) {
+        console.error('Error in getMyCompaniesForHr:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách công ty!',
+            EC: -1,
+            DT: []
         };
     }
 };
@@ -729,7 +788,11 @@ const getJobApplicationsForHr = async (userId, filters = {}) => {
         // Get recruiters for this user
         const recruiters = await db.Recruiter.findAll({
             where: { userId },
-            attributes: ['id']
+            attributes: ['id', 'companyId'],
+            include: [{
+                model: db.Company,
+                attributes: ['id', 'Tencongty']
+            }]
         });
 
         if (!recruiters || recruiters.length === 0) {
@@ -741,12 +804,32 @@ const getJobApplicationsForHr = async (userId, filters = {}) => {
         }
 
         const recruiterIds = recruiters.map(r => r.id);
+        console.log('=== DEBUG getJobApplicationsForHr ===');
+        console.log('userId:', userId);
+        console.log('Recruiters:', recruiters.map(r => ({ 
+            id: r.id, 
+            companyId: r.companyId,
+            companyName: r.Company?.Tencongty 
+        })));
+        console.log('recruiterIds:', recruiterIds);
 
         // Get job postings for these recruiters
         const jobPostings = await db.JobPosting.findAll({
             where: { recruiterId: recruiterIds },
-            attributes: ['id']
+            attributes: ['id', 'Tieude', 'recruiterId'],
+            include: [{
+                model: db.Company,
+                attributes: ['id', 'Tencongty']
+            }]
         });
+
+        console.log('Job Postings found:', jobPostings.length);
+        console.log('Job Postings:', jobPostings.map(jp => ({
+            id: jp.id,
+            Tieude: jp.Tieude,
+            recruiterId: jp.recruiterId,
+            companyName: jp.Company?.Tencongty
+        })));
 
         if (!jobPostings || jobPostings.length === 0) {
             return {
@@ -762,6 +845,7 @@ const getJobApplicationsForHr = async (userId, filters = {}) => {
         }
 
         const jobPostingIds = jobPostings.map(jp => jp.id);
+        console.log('jobPostingIds:', jobPostingIds);
 
         // Build where clause
         const whereClause = {
@@ -1294,6 +1378,7 @@ export default {
     deleteJobPostingForHr,
     createJobPostingForHr,
     updateJobPostingForHr,
+    getMyCompaniesForHr,
     getActiveJobPostingsForHr,
     getJobApplicationsForHr,
     getApplicationStatistics,

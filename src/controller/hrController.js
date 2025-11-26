@@ -42,7 +42,7 @@ const getMyJobPostings = async (req, res) => {
         }
 
         const data = await hrService.getMyJobPostings(userId, parseInt(page), parseInt(limit));
-
+        console.log(">>.>>>>>danh ahc",data);
         return res.status(200).json({
             EM: data.EM,
             EC: data.EC,
@@ -174,6 +174,35 @@ const updateJobPosting = async (req, res) => {
             EM: 'Lỗi từ server!',
             EC: -1,
             DT: ''
+        });
+    }
+};
+
+const getMyCompanies = async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: []
+            });
+        }
+
+        const data = await hrService.getMyCompaniesForHr(userId);
+
+        return res.status(200).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: []
         });
     }
 };
@@ -399,6 +428,7 @@ export default {
     deleteJobPosting,
     createJobPosting,
     updateJobPosting,
+    getMyCompanies,
     getActiveJobPostings,
     getJobApplications,
     getApplicationStatistics,
