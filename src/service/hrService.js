@@ -1157,6 +1157,136 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
     }
 };
 
+// =====================================================
+// COMPANY PROFILE MANAGEMENT
+// =====================================================
+
+/**
+ * Get company profile for HR user
+ * @param {number} userId - ID of the HR user
+ * @returns {Object} Company profile data
+ */
+const getCompanyProfile = async (userId) => {
+    try {
+        // Find recruiter by userId
+        const recruiter = await db.Recruiter.findOne({
+            where: { userId: userId },
+            attributes: ['id', 'Chucvu', 'SDT', 'companyId'],
+            include: [
+                {
+                    model: db.User,
+                    attributes: ['id', 'Hoten', 'email']
+                },
+                {
+                    model: db.Company,
+                    attributes: ['id', 'Tencongty', 'Nganhnghe', 'Quymo', 'Diachi', 'Website', 'Mota', 'Ngaythanhgia']
+                }
+            ]
+        });
+
+        if (!recruiter) {
+            return {
+                EM: 'Không tìm thấy thông tin nhà tuyển dụng!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        if (!recruiter.Company) {
+            return {
+                EM: 'Không tìm thấy thông tin công ty!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        return {
+            EM: 'Lấy thông tin công ty thành công!',
+            EC: 0,
+            DT: {
+                recruiter: {
+                    id: recruiter.id,
+                    Chucvu: recruiter.Chucvu,
+                    SDT: recruiter.SDT,
+                    Hoten: recruiter.User?.Hoten,
+                    email: recruiter.User?.email
+                },
+                company: recruiter.Company.toJSON()
+            }
+        };
+    } catch (error) {
+        console.error('Error in getCompanyProfile:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy thông tin công ty!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Update company profile for HR user
+ * @param {number} userId - ID of the HR user
+ * @param {Object} companyData - Company data to update
+ * @returns {Object} Update result
+ */
+const updateCompanyProfile = async (userId, companyData) => {
+    try {
+        // Find recruiter by userId
+        const recruiter = await db.Recruiter.findOne({
+            where: { userId: userId },
+            attributes: ['id', 'companyId']
+        });
+
+        if (!recruiter) {
+            return {
+                EM: 'Không tìm thấy thông tin nhà tuyển dụng!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Update company
+        const [updatedRows] = await db.Company.update(
+            {
+                Tencongty: companyData.Tencongty,
+                Nganhnghe: companyData.Nganhnghe,
+                Quymo: companyData.Quymo,
+                Diachi: companyData.Diachi,
+                Website: companyData.Website,
+                Mota: companyData.Mota
+            },
+            {
+                where: { id: recruiter.companyId }
+            }
+        );
+
+        if (updatedRows === 0) {
+            return {
+                EM: 'Không thể cập nhật thông tin công ty!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Get updated company data
+        const updatedCompany = await db.Company.findByPk(recruiter.companyId);
+
+        return {
+            EM: 'Cập nhật thông tin công ty thành công!',
+            EC: 0,
+            DT: updatedCompany
+        };
+    } catch (error) {
+        console.error('Error in updateCompanyProfile:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật thông tin công ty!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     getDashboardData,
     getMyJobPostings,
@@ -1168,7 +1298,7 @@ export default {
     getJobApplicationsForHr,
     getApplicationStatistics,
     getApplicationDetail,
-    updateApplicationStatus
+    updateApplicationStatus,
+    getCompanyProfile,
+    updateCompanyProfile
 };
-
-

@@ -63,6 +63,10 @@ const initWebRoutes = (app) => {
     app.get("/api/hr/applications/detail", hrController.getApplicationDetail);
     app.put("/api/hr/applications/:applicationId", hrController.updateApplicationStatus);
 
+    // API HR Company Profile
+    app.get("/api/hr/company-profile", hrController.getCompanyProfile);
+    app.put("/api/hr/company-profile", hrController.updateCompanyProfile);
+
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
     app.get("/api/formats", utilityController.getAllFormats);

@@ -333,6 +333,65 @@ const updateApplicationStatus = async (req, res) => {
     }
 };
 
+// =====================================================
+// COMPANY PROFILE MANAGEMENT
+// =====================================================
+
+/**
+ * Get company profile for HR user
+ */
+const getCompanyProfile = async (req, res) => {
+    try {
+        const userId = req.query.userId;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin userId!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await hrService.getCompanyProfile(+userId);
+        return res.status(200).json(data);
+    } catch (error) {
+        console.error('Error in getCompanyProfile controller:', error);
+        return res.status(500).json({
+            EM: 'Có lỗi xảy ra từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
+/**
+ * Update company profile for HR user
+ */
+const updateCompanyProfile = async (req, res) => {
+    try {
+        const userId = req.body.userId;
+        const companyData = req.body.companyData;
+
+        if (!userId || !companyData) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin cần thiết!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await hrService.updateCompanyProfile(+userId, companyData);
+        return res.status(200).json(data);
+    } catch (error) {
+        console.error('Error in updateCompanyProfile controller:', error);
+        return res.status(500).json({
+            EM: 'Có lỗi xảy ra từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 export default {
     getDashboard,
     getMyJobPostings,
@@ -344,7 +403,9 @@ export default {
     getJobApplications,
     getApplicationStatistics,
     getApplicationDetail,
-    updateApplicationStatus
+    updateApplicationStatus,
+    getCompanyProfile,
+    updateCompanyProfile
 };
 
 
