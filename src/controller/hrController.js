@@ -178,9 +178,38 @@ const updateJobPosting = async (req, res) => {
     }
 };
 
+const getActiveJobPostings = async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: []
+            });
+        }
+
+        const data = await hrService.getActiveJobPostingsForHr(userId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: []
+        });
+    }
+};
+
 const getJobApplications = async (req, res) => {
     try {
-        const { userId, statusId = 'all', page = 1, limit = 10, search = '' } = req.query;
+        const { userId, statusId = 'all', jobPostingId = 'all', page = 1, limit = 10, search = '' } = req.query;
 
         if (!userId) {
             return res.status(400).json({
@@ -192,6 +221,7 @@ const getJobApplications = async (req, res) => {
 
         const filters = {
             statusId,
+            jobPostingId,
             page: parseInt(page),
             limit: parseInt(limit),
             search: search.trim()
@@ -310,6 +340,7 @@ export default {
     deleteJobPosting,
     createJobPosting,
     updateJobPosting,
+    getActiveJobPostings,
     getJobApplications,
     getApplicationStatistics,
     getApplicationDetail,

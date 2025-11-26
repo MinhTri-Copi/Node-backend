@@ -597,6 +597,125 @@ const updateJobPostingForHr = async (userId, jobId, data) => {
  * @param {object} filters - Filter options (status, page, limit)
  * @returns {object} - Applications list with pagination
  */
+/**
+ * Get job postings that have applications for HR
+ * @param {number} userId - The HR user ID
+ * @returns {object} - List of job postings with applications
+ */
+const getActiveJobPostingsForHr = async (userId) => {
+    try {
+        console.log('=== getActiveJobPostingsForHr START ===');
+        console.log('userId:', userId);
+        
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: []
+            };
+        }
+
+        // Get recruiters for this user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+        console.log('Recruiters found:', recruiters.length);
+        console.log('Recruiter IDs:', recruiters.map(r => r.id));
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: []
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get all job postings for these recruiters
+        const allJobPostings = await db.JobPosting.findAll({
+            where: { recruiterId: recruiterIds },
+            attributes: ['id']
+        });
+        console.log('Job postings found:', allJobPostings.length);
+        console.log('Job posting IDs:', allJobPostings.map(jp => jp.id));
+
+        if (!allJobPostings || allJobPostings.length === 0) {
+            return {
+                EM: 'Bạn chưa có tin tuyển dụng nào!',
+                EC: 3,
+                DT: []
+            };
+        }
+
+        const jobPostingIds = allJobPostings.map(jp => jp.id);
+
+        // Get all applications for these job postings
+        const applications = await db.JobApplication.findAll({
+            where: { jobPostingId: jobPostingIds },
+            attributes: ['jobPostingId'],
+            include: [
+                {
+                    model: db.JobPosting,
+                    attributes: ['id', 'Tieude', 'Diadiem'],
+                    include: [
+                        {
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty']
+                        }
+                    ]
+                }
+            ]
+        });
+        console.log('Applications found:', applications.length);
+
+        if (!applications || applications.length === 0) {
+            console.log('NO APPLICATIONS FOUND!');
+            return {
+                EM: 'Chưa có ứng viên nào ứng tuyển!',
+                EC: 4,
+                DT: []
+            };
+        }
+
+        // Extract unique job postings using a Map
+        const jobPostingsMap = new Map();
+        applications.forEach((app, index) => {
+            console.log(`Application ${index}:`, {
+                jobPostingId: app.jobPostingId,
+                hasJobPosting: !!app.JobPosting,
+                jobPostingData: app.JobPosting ? {
+                    id: app.JobPosting.id,
+                    Tieude: app.JobPosting.Tieude,
+                    hasCompany: !!app.JobPosting.Company
+                } : null
+            });
+            
+            if (app.JobPosting && !jobPostingsMap.has(app.JobPosting.id)) {
+                jobPostingsMap.set(app.JobPosting.id, app.JobPosting.toJSON());
+            }
+        });
+
+        const uniqueJobPostings = Array.from(jobPostingsMap.values());
+        console.log('Unique job postings:', uniqueJobPostings.length);
+        console.log('=== getActiveJobPostingsForHr END ===');
+
+        return {
+            EM: 'Lấy danh sách tin tuyển dụng thành công!',
+            EC: 0,
+            DT: uniqueJobPostings
+        };
+    } catch (error) {
+        console.error('Error in getActiveJobPostingsForHr:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách tin tuyển dụng!',
+            EC: -1,
+            DT: []
+        };
+    }
+};
+
 const getJobApplicationsForHr = async (userId, filters = {}) => {
     try {
         if (!userId) {
@@ -648,6 +767,11 @@ const getJobApplicationsForHr = async (userId, filters = {}) => {
         const whereClause = {
             jobPostingId: jobPostingIds
         };
+
+        // Filter by specific job posting
+        if (filters.jobPostingId && filters.jobPostingId !== 'all') {
+            whereClause.jobPostingId = filters.jobPostingId;
+        }
 
         // Filter by status if provided
         if (filters.statusId && filters.statusId !== 'all') {
@@ -1040,6 +1164,7 @@ export default {
     deleteJobPostingForHr,
     createJobPostingForHr,
     updateJobPostingForHr,
+    getActiveJobPostingsForHr,
     getJobApplicationsForHr,
     getApplicationStatistics,
     getApplicationDetail,
