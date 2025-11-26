@@ -6,6 +6,7 @@ import recordController from '../controller/recordController';
 import jobPostingController from '../controller/jobPostingController';
 import jobApplicationController from '../controller/jobApplicationController';
 import hrController from '../controller/hrController';
+import statisticsHrController from '../controller/statisticsHrController';
 import utilityController from '../controller/utilityController';
 import upload from '../middleware/uploadCV';
 
@@ -66,6 +67,10 @@ const initWebRoutes = (app) => {
     // API HR Company Profile
     app.get("/api/hr/company-profile", hrController.getCompanyProfile);
     app.put("/api/hr/company-profile", hrController.updateCompanyProfile);
+
+    // API HR Statistics
+    app.get("/api/hr/statistics/dashboard", statisticsHrController.getDashboardStatistics);
+    app.get("/api/hr/statistics/trends", statisticsHrController.getApplicationTrends);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
