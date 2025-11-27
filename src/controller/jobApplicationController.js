@@ -76,10 +76,72 @@ const getMyApplications = async (req, res) => {
     }
 };
 
+const startTest = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const { applicationId } = req.body;
+
+        if (!userId || !applicationId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await jobApplicationService.startTestForApplication(userId, applicationId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
+const getTestSubmissionDetail = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { submissionId } = req.params;
+
+        if (!userId || !submissionId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await jobApplicationService.getTestSubmissionDetail(userId, submissionId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (e) {
+        console.log(e);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
 export default {
     applyJob,
     checkApplied,
-    getMyApplications
+    getMyApplications,
+    startTest,
+    getTestSubmissionDetail
 };
 
 

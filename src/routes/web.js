@@ -49,6 +49,8 @@ const initWebRoutes = (app) => {
     app.post("/api/job-applications", jobApplicationController.applyJob);
     app.get("/api/job-applications/check", jobApplicationController.checkApplied);
     app.get("/api/job-applications", jobApplicationController.getMyApplications);
+    app.post("/api/job-applications/tests/start", jobApplicationController.startTest);
+    app.get("/api/job-applications/tests/submissions/:submissionId", jobApplicationController.getTestSubmissionDetail);
 
     // API HR Dashboard
     app.get("/api/hr/dashboard", hrController.getDashboard);

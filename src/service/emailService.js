@@ -332,8 +332,94 @@ const sendRejectionEmail = async (candidateInfo, jobInfo, companyInfo) => {
     }
 };
 
+const sendTestAssignmentEmail = async (candidateInfo, jobInfo, testInfo, companyInfo) => {
+    try {
+        const { email, Hoten } = candidateInfo;
+        const { Tieude } = jobInfo;
+        const { Tencongty } = companyInfo;
+        const { testTitle, deadline, duration } = testInfo;
+
+        const mailOptions = {
+            from: `"${Tencongty}" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `📝 Bạn có bài test mới cho vị trí ${Tieude}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                        }
+                        .container {
+                            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+                            border-radius: 10px;
+                            padding: 30px;
+                            color: white;
+                        }
+                        .content {
+                            background: white;
+                            border-radius: 10px;
+                            padding: 30px;
+                            margin-top: 20px;
+                            color: #1f2937;
+                        }
+                        .highlight {
+                            font-weight: bold;
+                            color: #2563eb;
+                        }
+                        .btn {
+                            display: inline-block;
+                            padding: 12px 24px;
+                            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+                            color: white;
+                            text-decoration: none;
+                            border-radius: 8px;
+                            margin-top: 20px;
+                            font-weight: bold;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>📩 Bạn có bài test mới!</h2>
+                        <p>Xin chào <strong>${Hoten}</strong>,</p>
+                        <p>
+                            Hồ sơ của bạn cho vị trí <strong>${Tieude}</strong> đã được duyệt
+                            và chúng tôi muốn mời bạn hoàn thành bài test tiếp theo.
+                        </p>
+                        <div class="content">
+                            <p><span class="highlight">Tên bài test:</span> ${testTitle}</p>
+                            <p><span class="highlight">Thời gian làm bài:</span> ${duration} phút</p>
+                            <p><span class="highlight">Hạn hoàn thành:</span> ${deadline || 'Không giới hạn'}</p>
+                            <p>Vui lòng đăng nhập vào trang ứng viên để bắt đầu làm bài test.</p>
+                        </div>
+                        <p>Có thắc mắc gì, hãy phản hồi email này. Chúc bạn hoàn thành tốt bài test!</p>
+                        <p>Trân trọng,<br/>${Tencongty}</p>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent successfully:', info.messageId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending test assignment email:', error);
+        return false;
+    }
+};
+
 export default {
     sendApprovalEmail,
-    sendRejectionEmail
+    sendRejectionEmail,
+    sendTestAssignmentEmail
 };
 

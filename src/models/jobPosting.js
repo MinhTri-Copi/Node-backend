@@ -16,6 +16,7 @@ module.exports = (sequelize, DataTypes) => {
             JobPosting.belongsTo(models.Format, { foreignKey: 'formatId' });
             JobPosting.belongsTo(models.JobPostingStatus, { foreignKey: 'TrangthaiId' });
             JobPosting.hasMany(models.JobApplication, { foreignKey: 'jobPostingId' });
+            JobPosting.hasOne(models.Test, { foreignKey: 'jobPostingId', as: 'Test' });
 
             JobPosting.belongsToMany(models.Major, {
                 through: 'MajorJobPosting',

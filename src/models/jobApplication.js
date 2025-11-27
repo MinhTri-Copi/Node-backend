@@ -18,6 +18,11 @@ module.exports = (sequelize, DataTypes) => {
       JobApplication.belongsTo(models.ApplicationStatus, { foreignKey: 'applicationStatusId' });
       
       JobApplication.belongsTo(models.Record, { foreignKey: 'recordId' });
+      
+      JobApplication.hasMany(models.TestSubmission, {
+        foreignKey: 'jobApplicationId',
+        as: 'TestSubmissions'
+      });
     }
   }
   JobApplication.init({

@@ -150,15 +150,52 @@ const getApplicationsByUser = async (userId) => {
                 {
                     model: db.ApplicationStatus,
                     attributes: ['id', 'TenTrangThai']
+                },
+                {
+                    model: db.TestSubmission,
+                    as: 'TestSubmissions',
+                    required: false,
+                    attributes: [
+                        'id',
+                        'Thoigianbatdau',
+                        'Thoigianketthuc',
+                        'Thoigianconlai',
+                        'Hanhethan',
+                        'Tongdiemdatduoc',
+                        'Trangthai',
+                        'createdAt',
+                        'updatedAt'
+                    ]
                 }
             ],
             order: [['Ngaynop', 'DESC']]
         });
 
+        const jobPostingIds = applications
+            .map(app => app.JobPosting?.id)
+            .filter(id => !!id);
+
+        let testMap = new Map();
+        if (jobPostingIds.length > 0) {
+            const tests = await db.Test.findAll({
+                where: { jobPostingId: jobPostingIds },
+                attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngayhethan', 'Trangthai', 'jobPostingId']
+            });
+            testMap = new Map(tests.map(test => [test.jobPostingId, test.toJSON()]));
+        }
+
+        const enrichedApplications = applications.map(app => {
+            const json = app.toJSON();
+            if (json.JobPosting && json.JobPosting.id) {
+                json.JobPosting.Test = testMap.get(json.JobPosting.id) || null;
+            }
+            return json;
+        });
+
         return {
             EM: 'Lấy danh sách đơn ứng tuyển thành công!',
             EC: 0,
-            DT: applications
+            DT: enrichedApplications
         };
     } catch (e) {
         console.log(e);
@@ -207,10 +244,207 @@ const checkApplied = async (userId, jobPostingId) => {
     }
 };
 
+const startTestForApplication = async (userId, applicationId) => {
+    try {
+        if (!userId || !applicationId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const application = await db.JobApplication.findOne({
+            where: { id: applicationId },
+            include: [
+                {
+                    model: db.Record,
+                    where: { userId },
+                    attributes: ['id'],
+                    required: true
+                },
+                {
+                    model: db.JobPosting,
+                    attributes: ['id'],
+                    include: [{
+                        model: db.Test,
+                        as: 'Test',
+                        attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngayhethan', 'Trangthai']
+                    }]
+                },
+                {
+                    model: db.ApplicationStatus,
+                    attributes: ['id', 'TenTrangThai']
+                }
+            ]
+        });
+
+        if (!application) {
+            return {
+                EM: 'Không tìm thấy đơn ứng tuyển!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        if (application.applicationStatusId !== 4) {
+            return {
+                EM: 'Đơn ứng tuyển này chưa được duyệt!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        const test = application.JobPosting?.Test;
+
+        if (!test || test.Trangthai === 0) {
+            return {
+                EM: 'Tin tuyển dụng này chưa có bài test!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        const duration = test.Thoigiantoida || 60;
+        const now = new Date();
+
+        let submission = await db.TestSubmission.findOne({
+            where: {
+                testId: test.id,
+                userId,
+                jobApplicationId: application.id
+            }
+        });
+
+        if (!submission) {
+            submission = await db.TestSubmission.create({
+                testId: test.id,
+                userId,
+                jobApplicationId: application.id,
+                Thoigianbatdau: now,
+                Thoigianconlai: duration,
+                Hanhethan: test.Ngayhethan || null,
+                Trangthai: 'danglam'
+            });
+        } else {
+            if (submission.Trangthai === 'dacham' || submission.Trangthai === 'danop') {
+                return {
+                    EM: 'Bạn đã hoàn thành bài test này!',
+                    EC: 5,
+                    DT: null
+                };
+            }
+
+            if (submission.Trangthai === 'chuabatdau') {
+                await submission.update({
+                    Trangthai: 'danglam',
+                    Thoigianbatdau: now,
+                    Thoigianconlai: duration
+                });
+            }
+        }
+
+        const submissionDetail = await db.TestSubmission.findOne({
+            where: { id: submission.id },
+            include: [
+                {
+                    model: db.Test,
+                    as: 'Test',
+                    include: [{
+                        model: db.TestQuestion,
+                        as: 'Questions',
+                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu']
+                    }]
+                },
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    include: [{
+                        model: db.JobPosting,
+                        attributes: ['id', 'Tieude']
+                    }]
+                }
+            ]
+        });
+
+        return {
+            EM: 'Bắt đầu làm bài test!',
+            EC: 0,
+            DT: submissionDetail
+        };
+
+    } catch (error) {
+        console.error('Error in startTestForApplication:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi bắt đầu bài test!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+const getTestSubmissionDetail = async (userId, submissionId) => {
+    try {
+        if (!userId || !submissionId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const submission = await db.TestSubmission.findOne({
+            where: { id: submissionId, userId },
+            include: [
+                {
+                    model: db.Test,
+                    as: 'Test',
+                    include: [{
+                        model: db.TestQuestion,
+                        as: 'Questions',
+                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu']
+                    }]
+                },
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    include: [{
+                        model: db.JobPosting,
+                        attributes: ['id', 'Tieude']
+                    }]
+                }
+            ]
+        });
+
+        if (!submission) {
+            return {
+                EM: 'Không tìm thấy thông tin bài test!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        return {
+            EM: 'Lấy thông tin bài test thành công!',
+            EC: 0,
+            DT: submission
+        };
+    } catch (error) {
+        console.error('Error in getTestSubmissionDetail:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy thông tin bài test!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     applyJob,
     checkApplied,
-    getApplicationsByUser
+    getApplicationsByUser,
+    startTestForApplication,
+    getTestSubmissionDetail
 };
 
 

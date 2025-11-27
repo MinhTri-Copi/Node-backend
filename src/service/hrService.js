@@ -1257,10 +1257,12 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
 
                 if (fullApplication && fullApplication.Record && fullApplication.Record.User) {
                     const candidateInfo = {
+                        id: fullApplication.Record.User.id,
                         email: fullApplication.Record.User.email,
                         Hoten: fullApplication.Record.User.Hoten
                     };
                     const jobInfo = {
+                        id: fullApplication.JobPosting.id,
                         Tieude: fullApplication.JobPosting.Tieude
                     };
                     const companyInfo = {
@@ -1269,9 +1271,51 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
 
                     // Send appropriate email based on status
                     if (newStatusId === 4) {
-                        // Approved - send congratulations email
                         await emailService.sendApprovalEmail(candidateInfo, jobInfo, companyInfo);
                         console.log('✅ Đã gửi email thông báo duyệt đến:', candidateInfo.email);
+
+                        // Check test assignment
+                        const test = await db.Test.findOne({
+                            where: { jobPostingId: jobInfo.id, Trangthai: 1 }
+                        });
+
+                        if (test) {
+                            let submission = await db.TestSubmission.findOne({
+                                where: {
+                                    testId: test.id,
+                                    userId: candidateInfo.id,
+                                    jobApplicationId: fullApplication.id
+                                }
+                            });
+
+                            let assignmentCreated = false;
+
+                            if (!submission) {
+                                submission = await db.TestSubmission.create({
+                                    testId: test.id,
+                                    userId: candidateInfo.id,
+                                    jobApplicationId: fullApplication.id,
+                                    Trangthai: 'chuabatdau',
+                                    Thoigianconlai: test.Thoigiantoida || 60,
+                                    Hanhethan: test.Ngayhethan || null
+                                });
+                                assignmentCreated = true;
+                            }
+
+                            if (assignmentCreated) {
+                                await emailService.sendTestAssignmentEmail(
+                                    candidateInfo,
+                                    jobInfo,
+                                    {
+                                        testTitle: test.Tieude,
+                                        duration: test.Thoigiantoida || 60,
+                                        deadline: test.Ngayhethan ? new Date(test.Ngayhethan).toLocaleDateString('vi-VN') : 'Không giới hạn'
+                                    },
+                                    companyInfo
+                                );
+                                console.log('📨 Đã gán bài test và gửi email cho:', candidateInfo.email);
+                            }
+                        }
                     } else if (newStatusId === 3) {
                         // Rejected - send rejection email
                         await emailService.sendRejectionEmail(candidateInfo, jobInfo, companyInfo);
