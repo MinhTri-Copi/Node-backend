@@ -190,62 +190,49 @@ const getMyJobPostings = async (userId, page = 1, limit = 10) => {
         // Lấy danh sách job postings với phân trang
         const offset = (page - 1) * limit;
 
-        const { count, rows } = await db.MajorJobPosting.findAndCountAll({
+        const { count, rows } = await db.JobPosting.findAndCountAll({
+            where: { recruiterId: recruiterIds },
             include: [
                 {
-                    model: db.JobPosting,
-                    required: true,
-                    where: { recruiterId: recruiterIds },
+                    model: db.Company,
+                    attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+                },
+                {
+                    model: db.Format,
+                    attributes: ['id', 'TenHinhThuc']
+                },
+                {
+                    model: db.JobPostingStatus,
+                    attributes: ['id', 'TenTrangThai']
+                },
+                {
+                    model: db.Recruiter,
+                    attributes: ['id', 'Chucvu', 'SDT'],
                     include: [
                         {
-                            model: db.Company,
-                            attributes: ['id', 'Tencongty', 'Diachi', 'Website']
-                        },
-                        {
-                            model: db.Format,
-                            attributes: ['id', 'TenHinhThuc']
-                        },
-                        {
-                            model: db.JobPostingStatus,
-                            attributes: ['id', 'TenTrangThai']
-                        },
-                        {
-                            model: db.Recruiter,
-                            attributes: ['id', 'Chucvu', 'SDT'],
-                            include: [
-                                {
-                                    model: db.User,
-                                    attributes: ['id', 'Hoten', 'email']
-                                }
-                            ]
+                            model: db.User,
+                            attributes: ['id', 'Hoten', 'email']
                         }
                     ]
                 },
                 {
                     model: db.Major,
-                    attributes: ['id', 'TenNghanhNghe']
+                    attributes: ['id', 'TenNghanhNghe'],
+                    through: { attributes: [] }
                 }
             ],
-        
             distinct: true,
-            col: 'jobPostingId',
-            offset: offset,
-            limit: limit,
-            order: [[db.JobPosting, 'updatedAt', 'DESC']]
+            offset,
+            limit,
+            order: [['updatedAt', 'DESC']]
         });
 
-        // Nhóm majors theo job posting
-        const jobsMap = new Map();
-        rows.forEach(mj => {
-            const job = mj.JobPosting.toJSON();
-            const major = mj.Major.toJSON();
-            if (!jobsMap.has(job.id)) {
-                jobsMap.set(job.id, { ...job, majors: [] });
-            }
-            jobsMap.get(job.id).majors.push(major);
+        const jobsWithMajors = rows.map(job => {
+            const jobData = job.toJSON();
+            jobData.majors = jobData.Majors || [];
+            delete jobData.Majors;
+            return jobData;
         });
-
-        const jobsWithMajors = Array.from(jobsMap.values());
         const totalPages = Math.ceil(count / limit);
 
         return {

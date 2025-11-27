@@ -59,28 +59,54 @@ const createTest = async (userId, data) => {
             };
         }
 
-        // Kiểm tra đã có bài test cho JobPosting này chưa
-        const existingTest = await db.Test.findOne({
-            where: { jobPostingId: data.jobPostingId }
-        });
+        // Cho phép nhiều bài test cho 1 JobPosting - bỏ kiểm tra unique constraint
+        // const existingTest = await db.Test.findOne({
+        //     where: { jobPostingId: data.jobPostingId }
+        // });
 
-        if (existingTest) {
-            return {
-                EM: 'Tin tuyển dụng này đã có bài test rồi!',
-                EC: 5,
-                DT: null
-            };
-        }
+        // if (existingTest) {
+        //     return {
+        //         EM: 'Tin tuyển dụng này đã có bài test rồi!',
+        //         EC: 5,
+        //         DT: null
+        //     };
+        // }
 
         // Validate thời gian
+        const now = new Date();
+        
+        if (data.Ngaybatdau) {
+            const startDate = new Date(data.Ngaybatdau);
+            if (startDate < now) {
+                return {
+                    EM: 'Ngày bắt đầu không được ở quá khứ!',
+                    EC: 6,
+                    DT: null
+                };
+            }
+        }
+
+        if (data.Ngayhethan) {
+            const endDate = new Date(data.Ngayhethan);
+            if (endDate < now) {
+                return {
+                    EM: 'Ngày hết hạn không được ở quá khứ!',
+                    EC: 7,
+                    DT: null
+                };
+            }
+        }
+
         if (data.Ngaybatdau && data.Ngayhethan) {
             const startDate = new Date(data.Ngaybatdau);
             const endDate = new Date(data.Ngayhethan);
             
-            if (endDate <= startDate) {
+            // Ngày hết hạn phải sau ngày bắt đầu ít nhất 1 ngày (24 giờ)
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            if (endDate.getTime() - startDate.getTime() < oneDayInMs) {
                 return {
-                    EM: 'Ngày hết hạn phải sau ngày bắt đầu!',
-                    EC: 6,
+                    EM: 'Ngày hết hạn phải sau ngày bắt đầu ít nhất 1 ngày!',
+                    EC: 8,
                     DT: null
                 };
             }
@@ -549,11 +575,337 @@ const getTestDetail = async (userId, testId) => {
     }
 };
 
+/**
+ * Cập nhật bài test
+ * @param {number} userId - ID của HR
+ * @param {number} testId - ID bài test
+ * @param {object} data - Dữ liệu cập nhật
+ * @returns {object} - Kết quả
+ */
+const updateTest = async (userId, testId, data) => {
+    try {
+        if (!userId || !testId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Kiểm tra quyền truy cập
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Tìm bài test
+        const test = await db.Test.findOne({
+            where: { id: testId },
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                where: { recruiterId: recruiterIds }
+            }]
+        });
+
+        if (!test) {
+            return {
+                EM: 'Không tìm thấy bài test hoặc bạn không có quyền chỉnh sửa!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Kiểm tra trạng thái - chỉ cho phép chỉnh sửa test "Chưa bắt đầu"
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        
+        if (startDate && now >= startDate) {
+            return {
+                EM: 'Không thể chỉnh sửa bài test đã bắt đầu hoặc đang hoạt động!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        // Validate thời gian nếu có cập nhật
+        if (data.Ngaybatdau) {
+            const newStartDate = new Date(data.Ngaybatdau);
+            if (newStartDate < now) {
+                return {
+                    EM: 'Ngày bắt đầu không được ở quá khứ!',
+                    EC: 5,
+                    DT: null
+                };
+            }
+        }
+
+        if (data.Ngayhethan) {
+            const newEndDate = new Date(data.Ngayhethan);
+            if (newEndDate < now) {
+                return {
+                    EM: 'Ngày hết hạn không được ở quá khứ!',
+                    EC: 6,
+                    DT: null
+                };
+            }
+        }
+
+        if (data.Ngaybatdau && data.Ngayhethan) {
+            const newStartDate = new Date(data.Ngaybatdau);
+            const newEndDate = new Date(data.Ngayhethan);
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            
+            if (newEndDate.getTime() - newStartDate.getTime() < oneDayInMs) {
+                return {
+                    EM: 'Ngày hết hạn phải sau ngày bắt đầu ít nhất 1 ngày!',
+                    EC: 7,
+                    DT: null
+                };
+            }
+        }
+
+        // Cập nhật bài test
+        await test.update({
+            Tieude: data.Tieude !== undefined ? data.Tieude : test.Tieude,
+            Mota: data.Mota !== undefined ? data.Mota : test.Mota,
+            Thoigiantoida: data.Thoigiantoida !== undefined ? data.Thoigiantoida : test.Thoigiantoida,
+            Ngaybatdau: data.Ngaybatdau !== undefined ? data.Ngaybatdau : test.Ngaybatdau,
+            Ngayhethan: data.Ngayhethan !== undefined ? data.Ngayhethan : test.Ngayhethan,
+            Tongdiem: data.Tongdiem !== undefined ? data.Tongdiem : test.Tongdiem,
+            Trangthai: data.Trangthai !== undefined ? data.Trangthai : test.Trangthai
+        });
+
+        return {
+            EM: 'Cập nhật bài test thành công!',
+            EC: 0,
+            DT: test
+        };
+
+    } catch (error) {
+        console.error('Error in updateTest:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật bài test!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Cập nhật câu hỏi
+ * @param {number} userId - ID của HR
+ * @param {number} questionId - ID câu hỏi
+ * @param {object} data - Dữ liệu cập nhật
+ * @returns {object} - Kết quả
+ */
+const updateQuestion = async (userId, questionId, data) => {
+    try {
+        if (!userId || !questionId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Kiểm tra quyền truy cập
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Tìm câu hỏi và kiểm tra quyền
+        const question = await db.TestQuestion.findOne({
+            where: { id: questionId },
+            include: [{
+                model: db.Test,
+                as: 'Test',
+                include: [{
+                    model: db.JobPosting,
+                    as: 'JobPosting',
+                    where: { recruiterId: recruiterIds }
+                }]
+            }]
+        });
+
+        if (!question) {
+            return {
+                EM: 'Không tìm thấy câu hỏi hoặc bạn không có quyền chỉnh sửa!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Kiểm tra trạng thái test - chỉ cho phép chỉnh sửa nếu test chưa bắt đầu
+        const test = question.Test;
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        
+        if (startDate && now >= startDate) {
+            return {
+                EM: 'Không thể chỉnh sửa câu hỏi của bài test đã bắt đầu!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        // Validate input
+        if (data.Cauhoi !== undefined && !data.Cauhoi.trim()) {
+            return {
+                EM: 'Câu hỏi không được để trống!',
+                EC: 5,
+                DT: null
+            };
+        }
+
+        if (data.Dapan !== undefined && !data.Dapan.trim()) {
+            return {
+                EM: 'Đáp án không được để trống!',
+                EC: 6,
+                DT: null
+            };
+        }
+
+        // Cập nhật câu hỏi
+        await question.update({
+            Cauhoi: data.Cauhoi !== undefined ? data.Cauhoi : question.Cauhoi,
+            Dapan: data.Dapan !== undefined ? data.Dapan : question.Dapan,
+            Diem: data.Diem !== undefined ? data.Diem : question.Diem,
+            Loaicauhoi: data.Loaicauhoi !== undefined ? data.Loaicauhoi : question.Loaicauhoi,
+            Thutu: data.Thutu !== undefined ? data.Thutu : question.Thutu
+        });
+
+        return {
+            EM: 'Cập nhật câu hỏi thành công!',
+            EC: 0,
+            DT: question
+        };
+
+    } catch (error) {
+        console.error('Error in updateQuestion:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật câu hỏi!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Xóa câu hỏi
+ * @param {number} userId - ID của HR
+ * @param {number} questionId - ID câu hỏi
+ * @returns {object} - Kết quả
+ */
+const deleteQuestion = async (userId, questionId) => {
+    try {
+        if (!userId || !questionId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Kiểm tra quyền truy cập
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Tìm câu hỏi và kiểm tra quyền
+        const question = await db.TestQuestion.findOne({
+            where: { id: questionId },
+            include: [{
+                model: db.Test,
+                as: 'Test',
+                include: [{
+                    model: db.JobPosting,
+                    as: 'JobPosting',
+                    where: { recruiterId: recruiterIds }
+                }]
+            }]
+        });
+
+        if (!question) {
+            return {
+                EM: 'Không tìm thấy câu hỏi hoặc bạn không có quyền xóa!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Kiểm tra trạng thái test
+        const test = question.Test;
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        
+        if (startDate && now >= startDate) {
+            return {
+                EM: 'Không thể xóa câu hỏi của bài test đã bắt đầu!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        // Xóa câu hỏi
+        await question.destroy();
+
+        return {
+            EM: 'Xóa câu hỏi thành công!',
+            EC: 0,
+            DT: null
+        };
+
+    } catch (error) {
+        console.error('Error in deleteQuestion:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi xóa câu hỏi!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     createTest,
     addQuestion,
     addMultipleQuestions,
     getMyTests,
-    getTestDetail
+    getTestDetail,
+    updateTest,
+    updateQuestion,
+    deleteQuestion
 };
 

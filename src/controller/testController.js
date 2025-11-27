@@ -183,11 +183,129 @@ const getTestDetail = async (req, res) => {
     }
 };
 
+/**
+ * Cập nhật bài test
+ */
+const updateTest = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { testId } = req.params;
+        const data = req.body;
+
+        if (!userId || !testId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const result = await testService.updateTest(
+            parseInt(userId), 
+            parseInt(testId), 
+            data
+        );
+
+        return res.status(result.EC === 0 ? 200 : 400).json({
+            EM: result.EM,
+            EC: result.EC,
+            DT: result.DT
+        });
+
+    } catch (error) {
+        console.error('Error in updateTest controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
+/**
+ * Cập nhật câu hỏi
+ */
+const updateQuestion = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { questionId } = req.params;
+        const data = req.body;
+
+        if (!userId || !questionId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const result = await testService.updateQuestion(
+            parseInt(userId), 
+            parseInt(questionId), 
+            data
+        );
+
+        return res.status(result.EC === 0 ? 200 : 400).json({
+            EM: result.EM,
+            EC: result.EC,
+            DT: result.DT
+        });
+
+    } catch (error) {
+        console.error('Error in updateQuestion controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
+/**
+ * Xóa câu hỏi
+ */
+const deleteQuestion = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { questionId } = req.params;
+
+        if (!userId || !questionId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const result = await testService.deleteQuestion(
+            parseInt(userId), 
+            parseInt(questionId)
+        );
+
+        return res.status(result.EC === 0 ? 200 : 400).json({
+            EM: result.EM,
+            EC: result.EC,
+            DT: result.DT
+        });
+
+    } catch (error) {
+        console.error('Error in deleteQuestion controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 export default {
     createTest,
     addQuestion,
     addMultipleQuestions,
     getMyTests,
-    getTestDetail
+    getTestDetail,
+    updateTest,
+    updateQuestion,
+    deleteQuestion
 };
 

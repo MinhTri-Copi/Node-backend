@@ -80,8 +80,11 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/tests", testController.createTest);
     app.get("/api/hr/tests", testController.getMyTests);
     app.get("/api/hr/tests/detail", testController.getTestDetail);
+    app.put("/api/hr/tests/:testId", testController.updateTest);
     app.post("/api/hr/tests/questions", testController.addQuestion);
     app.post("/api/hr/tests/questions/bulk", testController.addMultipleQuestions);
+    app.put("/api/hr/tests/questions/:questionId", testController.updateQuestion);
+    app.delete("/api/hr/tests/questions/:questionId", testController.deleteQuestion);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
