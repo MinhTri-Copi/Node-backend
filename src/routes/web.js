@@ -8,6 +8,7 @@ import jobApplicationController from '../controller/jobApplicationController';
 import hrController from '../controller/hrController';
 import statisticsHrController from '../controller/statisticsHrController';
 import utilityController from '../controller/utilityController';
+import testController from '../controller/testController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -72,6 +73,13 @@ const initWebRoutes = (app) => {
     // API HR Statistics
     app.get("/api/hr/statistics/dashboard", statisticsHrController.getDashboardStatistics);
     app.get("/api/hr/statistics/trends", statisticsHrController.getApplicationTrends);
+
+    // API HR Test Management
+    app.post("/api/hr/tests", testController.createTest);
+    app.get("/api/hr/tests", testController.getMyTests);
+    app.get("/api/hr/tests/detail", testController.getTestDetail);
+    app.post("/api/hr/tests/questions", testController.addQuestion);
+    app.post("/api/hr/tests/questions/bulk", testController.addMultipleQuestions);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
