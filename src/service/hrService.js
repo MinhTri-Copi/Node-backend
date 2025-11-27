@@ -1,4 +1,5 @@
 import db from '../models/index';
+import emailService from './emailService';
 
 const { Op } = db.Sequelize;
 
@@ -1224,6 +1225,64 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
             applicationStatusId: newStatusId,
             Ngaycapnhat: new Date()
         });
+
+        // Send email notification if status changed to approved (id=4) or rejected (id=3)
+        if (newStatusId === 4 || newStatusId === 3) {
+            try {
+                // Get full application details for email
+                const fullApplication = await db.JobApplication.findOne({
+                    where: { id: applicationId },
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude', 'Mota'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+                                }
+                            ]
+                        },
+                        {
+                            model: db.Record,
+                            include: [
+                                {
+                                    model: db.User,
+                                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                                }
+                            ]
+                        }
+                    ]
+                });
+
+                if (fullApplication && fullApplication.Record && fullApplication.Record.User) {
+                    const candidateInfo = {
+                        email: fullApplication.Record.User.email,
+                        Hoten: fullApplication.Record.User.Hoten
+                    };
+                    const jobInfo = {
+                        Tieude: fullApplication.JobPosting.Tieude
+                    };
+                    const companyInfo = {
+                        Tencongty: fullApplication.JobPosting.Company.Tencongty
+                    };
+
+                    // Send appropriate email based on status
+                    if (newStatusId === 4) {
+                        // Approved - send congratulations email
+                        await emailService.sendApprovalEmail(candidateInfo, jobInfo, companyInfo);
+                        console.log('✅ Đã gửi email thông báo duyệt đến:', candidateInfo.email);
+                    } else if (newStatusId === 3) {
+                        // Rejected - send rejection email
+                        await emailService.sendRejectionEmail(candidateInfo, jobInfo, companyInfo);
+                        console.log('✅ Đã gửi email thông báo từ chối đến:', candidateInfo.email);
+                    }
+                }
+            } catch (emailError) {
+                // Log error but don't fail the status update
+                console.error('⚠️ Không thể gửi email thông báo:', emailError);
+            }
+        }
 
         return {
             EM: 'Cập nhật trạng thái thành công!',
