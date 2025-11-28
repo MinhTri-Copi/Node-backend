@@ -95,6 +95,7 @@ const initWebRoutes = (app) => {
     app.post("/api/test-submissions/answers/:answerId/grade", testSubmissionController.gradeAnswer);
     app.post("/api/test-submissions/:submissionId/finalize", testSubmissionController.finalizeGrading);
     app.get("/api/test-submissions/:submissionId/result", testSubmissionController.getSubmissionResult);
+    app.post("/api/test-submissions/:submissionId/auto-grade", testSubmissionController.autoGradeSubmission);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);

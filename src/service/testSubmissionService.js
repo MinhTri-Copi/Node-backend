@@ -340,7 +340,7 @@ const getSubmissionForGrading = async (hrUserId, submissionId) => {
                 {
                     model: db.User,
                     as: 'User',
-                    attributes: ['id', 'Ten', 'Email']
+                    attributes: ['id', 'Hoten', 'email']
                 },
                 {
                     model: db.JobApplication,
@@ -362,7 +362,7 @@ const getSubmissionForGrading = async (hrUserId, submissionId) => {
                             include: [{
                                 model: db.User,
                                 as: 'Grader',
-                                attributes: ['id', 'Ten', 'Email']
+                                attributes: ['id', 'Hoten', 'email']
                             }],
                             order: [['createdAt', 'DESC']]
                         }

@@ -1,4 +1,5 @@
 import testSubmissionService from '../service/testSubmissionService';
+import aiGradingService from '../service/aiGradingService';
 
 const submitTest = async (req, res) => {
     try {
@@ -153,11 +154,41 @@ const getSubmissionResult = async (req, res) => {
     }
 };
 
+const autoGradeSubmission = async (req, res) => {
+    try {
+        const { submissionId } = req.params;
+
+        if (!submissionId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await aiGradingService.autoGradeSubmission(submissionId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in autoGradeSubmission controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 export default {
     submitTest,
     gradeAnswer,
     finalizeGrading,
     getSubmissionForGrading,
-    getSubmissionResult
+    getSubmissionResult,
+    autoGradeSubmission
 };
 
