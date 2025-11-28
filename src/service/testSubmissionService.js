@@ -488,11 +488,151 @@ const getSubmissionResult = async (userId, submissionId, isHR = false) => {
     }
 };
 
+/**
+ * Get test submissions for candidate
+ */
+const getMyTestSubmissions = async (userId, filters = {}) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const { status = 'all', jobPostingId = 'all', page = 1, limit = 10 } = filters;
+        const offset = (page - 1) * limit;
+
+        // Build where clause
+        const whereClause = { userId };
+        if (status !== 'all') {
+            whereClause.Trangthai = status;
+        }
+
+        // Build include clause for filtering by job posting
+        const testInclude = {
+            model: db.Test,
+            as: 'Test',
+            attributes: ['id', 'Tieude', 'Tongdiem', 'Ngaybatdau', 'Ngayhethan', 'jobPostingId'],
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                attributes: ['id', 'Tieude'],
+                include: [{
+                    model: db.Company,
+                    attributes: ['id', 'Tencongty']
+                }]
+            }]
+        };
+
+        // Filter by job posting if specified
+        if (jobPostingId !== 'all') {
+            testInclude.where = { jobPostingId: parseInt(jobPostingId) };
+            testInclude.required = true;
+        }
+
+        const { count, rows } = await db.TestSubmission.findAndCountAll({
+            where: whereClause,
+            include: [
+                testInclude,
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id', 'applicationStatusId']
+                }
+            ],
+            distinct: true,
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset
+        });
+
+        // Get list of job postings for filter options (from user's submissions)
+        const allSubmissions = await db.TestSubmission.findAll({
+            where: { userId },
+            include: [{
+                model: db.Test,
+                as: 'Test',
+                attributes: ['id', 'jobPostingId'],
+                include: [{
+                    model: db.JobPosting,
+                    as: 'JobPosting',
+                    attributes: ['id', 'Tieude']
+                }]
+            }],
+            attributes: []
+        });
+
+        // Extract unique job postings
+        const jobPostingMap = new Map();
+        allSubmissions.forEach(sub => {
+            if (sub.Test && sub.Test.JobPosting) {
+                const jp = sub.Test.JobPosting;
+                if (!jobPostingMap.has(jp.id)) {
+                    jobPostingMap.set(jp.id, {
+                        id: jp.id,
+                        Tieude: jp.Tieude
+                    });
+                }
+            }
+        });
+        const jobPostings = Array.from(jobPostingMap.values()).sort((a, b) => 
+            a.Tieude.localeCompare(b.Tieude)
+        );
+
+        const totalPages = Math.ceil(count / limit);
+
+        // Calculate stats
+        const [total, pending, graded, inProgress] = await Promise.all([
+            db.TestSubmission.count({ where: { userId } }),
+            db.TestSubmission.count({ where: { userId, Trangthai: 'danop' } }),
+            db.TestSubmission.count({ where: { userId, Trangthai: 'dacham' } }),
+            db.TestSubmission.count({ where: { userId, Trangthai: 'danglam' } })
+        ]);
+
+        return {
+            EM: 'Lấy danh sách bài test thành công!',
+            EC: 0,
+            DT: {
+                submissions: rows,
+                pagination: {
+                    totalRows: count,
+                    totalPages,
+                    currentPage: page,
+                    limit
+                },
+                stats: {
+                    total,
+                    pending,
+                    graded,
+                    inProgress
+                },
+                filterOptions: {
+                    jobPostings: jobPostings.map(jp => ({
+                        id: jp.id,
+                        Tieude: jp.Tieude
+                    }))
+                }
+            }
+        };
+
+    } catch (error) {
+        console.error('Error in getMyTestSubmissions:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách bài test!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     submitTest,
     gradeAnswer,
     finalizeGrading,
     getSubmissionForGrading,
-    getSubmissionResult
+    getSubmissionResult,
+    getMyTestSubmissions
 };
 
