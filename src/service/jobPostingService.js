@@ -30,6 +30,23 @@ const getListJobPosting = async (page, limit, filters = {}) => {
             };
         }
 
+        // Filter by max salary
+        if (filters.maxSalary) {
+            jobPostingWhere.Luongtoida = {
+                [db.Sequelize.Op.lte]: filters.maxSalary
+            };
+        }
+
+        // Filter by company
+        if (filters.companyId) {
+            jobPostingWhere.companyId = filters.companyId;
+        }
+
+        // Filter by format (hình thức làm việc)
+        if (filters.formatId) {
+            jobPostingWhere.formatId = filters.formatId;
+        }
+
         // Search by keyword (title or description)
         if (filters.keyword) {
             jobPostingWhere[db.Sequelize.Op.or] = [
@@ -366,11 +383,107 @@ const deleteJobPosting = async (id) => {
     }
 };
 
+// Get all filter options (majors, formats, companies, locations, experiences)
+const getFilterOptions = async () => {
+    try {
+        // Get all majors with job count
+        const majors = await db.Major.findAll({
+            attributes: [
+                'id', 
+                'TenNghanhNghe',
+                [db.Sequelize.literal(`(
+                    SELECT COUNT(DISTINCT mjp.jobPostingId) 
+                    FROM MajorJobPosting mjp 
+                    INNER JOIN JobPosting jp ON mjp.jobPostingId = jp.id 
+                    WHERE mjp.majorId = Major.id AND jp.TrangthaiId = 1
+                )`), 'jobCount']
+            ],
+            order: [[db.Sequelize.literal('jobCount'), 'DESC']]
+        });
+
+        // Get all formats
+        const formats = await db.Format.findAll({
+            attributes: ['id', 'TenHinhThuc'],
+            order: [['TenHinhThuc', 'ASC']]
+        });
+
+        // Get all companies with active jobs
+        const companies = await db.Company.findAll({
+            attributes: [
+                'id', 
+                'Tencongty',
+                [db.Sequelize.literal(`(
+                    SELECT COUNT(*) 
+                    FROM JobPosting jp 
+                    WHERE jp.companyId = Company.id AND jp.TrangthaiId = 1
+                )`), 'jobCount']
+            ],
+            having: db.Sequelize.literal('jobCount > 0'),
+            order: [[db.Sequelize.literal('jobCount'), 'DESC']],
+            limit: 20
+        });
+
+        // Get distinct locations from active jobs
+        const locations = await db.JobPosting.findAll({
+            attributes: [[db.Sequelize.fn('DISTINCT', db.Sequelize.col('Diadiem')), 'Diadiem']],
+            where: { 
+                TrangthaiId: 1,
+                Diadiem: { [db.Sequelize.Op.ne]: null }
+            },
+            order: [['Diadiem', 'ASC']]
+        });
+
+        // Predefined experience levels
+        const experiences = [
+            { value: 'Chưa có kinh nghiệm', label: 'Chưa có kinh nghiệm' },
+            { value: 'Dưới 1 năm', label: 'Dưới 1 năm' },
+            { value: '1 năm', label: '1 năm' },
+            { value: '2 năm', label: '2 năm' },
+            { value: '3 năm', label: '3 năm' },
+            { value: '4 năm', label: '4 năm' },
+            { value: '5 năm', label: '5 năm' },
+            { value: 'Trên 5 năm', label: 'Trên 5 năm' }
+        ];
+
+        // Predefined salary ranges
+        const salaryRanges = [
+            { value: '0-10', label: 'Dưới 10 triệu', min: 0, max: 10000000 },
+            { value: '10-15', label: '10 - 15 triệu', min: 10000000, max: 15000000 },
+            { value: '15-20', label: '15 - 20 triệu', min: 15000000, max: 20000000 },
+            { value: '20-25', label: '20 - 25 triệu', min: 20000000, max: 25000000 },
+            { value: '25-30', label: '25 - 30 triệu', min: 25000000, max: 30000000 },
+            { value: '30-50', label: '30 - 50 triệu', min: 30000000, max: 50000000 },
+            { value: '50+', label: 'Trên 50 triệu', min: 50000000, max: null }
+        ];
+
+        return {
+            EM: 'Lấy danh sách bộ lọc thành công!',
+            EC: 0,
+            DT: {
+                majors: majors.map(m => m.toJSON()),
+                formats: formats.map(f => f.toJSON()),
+                companies: companies.map(c => c.toJSON()),
+                locations: locations.map(l => l.Diadiem).filter(l => l),
+                experiences,
+                salaryRanges
+            }
+        };
+    } catch (e) {
+        console.log(e);
+        return {
+            EM: 'Lỗi khi lấy danh sách bộ lọc!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     getListJobPosting,
     getJobPostingById,
     createJobPosting,
     updateJobPosting,
-    deleteJobPosting
+    deleteJobPosting,
+    getFilterOptions
 };
 

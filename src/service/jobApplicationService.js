@@ -2,6 +2,28 @@ import db from '../models/index';
 
 const DEFAULT_STATUS_ID = 1; // Đang chờ
 
+const getTestAccessState = (test) => {
+    if (!test) return 'inactive';
+
+    if (test.Trangthai === 0) {
+        return 'inactive';
+    }
+
+    const now = new Date();
+    const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+    const endDate = test.Ngayhethan ? new Date(test.Ngayhethan) : null;
+
+    if (startDate && now < startDate) {
+        return 'pending';
+    }
+
+    if (endDate && now > endDate) {
+        return 'expired';
+    }
+
+    return 'active';
+};
+
 const applyJob = async (data) => {
     try {
         const { userId, jobPostingId, recordId, coverLetter, applicantPhone } = data;
@@ -179,7 +201,7 @@ const getApplicationsByUser = async (userId) => {
         if (jobPostingIds.length > 0) {
             const tests = await db.Test.findAll({
                 where: { jobPostingId: jobPostingIds },
-                attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngayhethan', 'Trangthai', 'jobPostingId']
+                attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngaybatdau', 'Ngayhethan', 'Trangthai', 'jobPostingId']
             });
             testMap = new Map(tests.map(test => [test.jobPostingId, test.toJSON()]));
         }
@@ -269,7 +291,7 @@ const startTestForApplication = async (userId, applicationId) => {
                     include: [{
                         model: db.Test,
                         as: 'Test',
-                        attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngayhethan', 'Trangthai']
+                        attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngaybatdau', 'Ngayhethan', 'Trangthai']
                     }]
                 },
                 {
@@ -301,6 +323,32 @@ const startTestForApplication = async (userId, applicationId) => {
             return {
                 EM: 'Tin tuyển dụng này chưa có bài test!',
                 EC: 4,
+                DT: null
+            };
+        }
+
+        const accessState = getTestAccessState(test);
+
+        if (accessState === 'pending') {
+            return {
+                EM: 'Bài test chưa đến thời gian bắt đầu!',
+                EC: 6,
+                DT: null
+            };
+        }
+
+        if (accessState === 'expired') {
+            return {
+                EM: 'Bài test đã kết thúc!',
+                EC: 7,
+                DT: null
+            };
+        }
+
+        if (accessState === 'inactive') {
+            return {
+                EM: 'Bài test hiện không khả dụng!',
+                EC: 8,
                 DT: null
             };
         }

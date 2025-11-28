@@ -13,14 +13,26 @@ const getRecordsByUserId = async (userId) => {
 
         let records = await db.Record.findAll({
             where: { userId: userId },
-            order: [['Ngaytao', 'DESC']],
-            raw: true
+            include: [{
+                model: db.JobApplication,
+                attributes: ['id'],
+                required: false
+            }],
+            order: [['Ngaytao', 'DESC']]
+        });
+
+        // Transform records to include application count
+        const recordsWithStats = records.map(record => {
+            const recordData = record.toJSON();
+            recordData.applicationCount = recordData.JobApplications ? recordData.JobApplications.length : 0;
+            delete recordData.JobApplications; // Remove the array, we only need count
+            return recordData;
         });
 
         return {
             EM: 'Lấy danh sách hồ sơ thành công!',
             EC: 0,
-            DT: records
+            DT: recordsWithStats
         };
     } catch (e) {
         console.log(e);

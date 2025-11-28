@@ -9,6 +9,7 @@ import hrController from '../controller/hrController';
 import statisticsHrController from '../controller/statisticsHrController';
 import utilityController from '../controller/utilityController';
 import testController from '../controller/testController';
+import testSubmissionController from '../controller/testSubmissionController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -40,6 +41,7 @@ const initWebRoutes = (app) => {
     
     // API Job Posting
     app.get("/api/jobs", jobPostingController.getListJobPosting);
+    app.get("/api/jobs/filters/options", jobPostingController.getFilterOptions);
     app.get("/api/jobs/:id", jobPostingController.getJobPostingById);
     app.post("/api/jobs", jobPostingController.createJobPosting);
     app.put("/api/jobs/:id", jobPostingController.updateJobPosting);
@@ -85,6 +87,13 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/tests/questions/bulk", testController.addMultipleQuestions);
     app.put("/api/hr/tests/questions/:questionId", testController.updateQuestion);
     app.delete("/api/hr/tests/questions/:questionId", testController.deleteQuestion);
+
+    // API Test Submission & Grading
+    app.post("/api/test-submissions/submit", testSubmissionController.submitTest);
+    app.get("/api/test-submissions/:submissionId/grading", testSubmissionController.getSubmissionForGrading);
+    app.post("/api/test-submissions/answers/:answerId/grade", testSubmissionController.gradeAnswer);
+    app.post("/api/test-submissions/:submissionId/finalize", testSubmissionController.finalizeGrading);
+    app.get("/api/test-submissions/:submissionId/result", testSubmissionController.getSubmissionResult);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
