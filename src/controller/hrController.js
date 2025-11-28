@@ -421,6 +421,48 @@ const updateCompanyProfile = async (req, res) => {
     }
 };
 
+const getTestSubmissions = async (req, res) => {
+    try {
+        const {
+            userId,
+            status = 'all',
+            jobPostingId = 'all',
+            page = 1,
+            limit = 10,
+            search = ''
+        } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        const data = await hrService.getTestSubmissionsForHr(userId, {
+            status,
+            jobPostingId,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            search: search.trim()
+        });
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getTestSubmissions controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: ''
+        });
+    }
+};
+
 export default {
     getDashboard,
     getMyJobPostings,
@@ -435,7 +477,8 @@ export default {
     getApplicationDetail,
     updateApplicationStatus,
     getCompanyProfile,
-    updateCompanyProfile
+    updateCompanyProfile,
+    getTestSubmissions
 };
 
 

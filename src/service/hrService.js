@@ -1331,6 +1331,237 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
     }
 };
 
+const getTestSubmissionsForHr = async (userId, filters = {}) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            };
+        }
+
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: {
+                    submissions: [],
+                    pagination: {
+                        totalRows: 0,
+                        totalPages: 0,
+                        currentPage: 1,
+                        limit: filters.limit || 10
+                    },
+                    stats: { total: 0, pending: 0, graded: 0 },
+                    filterOptions: {
+                        jobPostings: []
+                    }
+                }
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        const jobPostings = await db.JobPosting.findAll({
+            where: { recruiterId: recruiterIds },
+            attributes: ['id', 'Tieude', 'companyId'],
+            include: [{
+                model: db.Company,
+                attributes: ['id', 'Tencongty']
+            }]
+        });
+
+        if (!jobPostings || jobPostings.length === 0) {
+            return {
+                EM: 'Bạn chưa có tin tuyển dụng nào!',
+                EC: 3,
+                DT: {
+                    submissions: [],
+                    pagination: {
+                        totalRows: 0,
+                        totalPages: 0,
+                        currentPage: 1,
+                        limit: filters.limit || 10
+                    },
+                    stats: { total: 0, pending: 0, graded: 0 },
+                    filterOptions: {
+                        jobPostings: []
+                    }
+                }
+            };
+        }
+
+        const jobPostingIds = jobPostings.map(job => job.id);
+        const jobOptions = jobPostings.map(job => ({
+            id: job.id,
+            title: job.Tieude,
+            companyName: job.Company?.Tencongty || ''
+        }));
+
+        const tests = await db.Test.findAll({
+            where: { jobPostingId: jobPostingIds },
+            attributes: ['id', 'Tieude', 'jobPostingId']
+        });
+
+        if (!tests || tests.length === 0) {
+            return {
+                EM: 'Chưa có bài test nào cho các tin tuyển dụng của bạn!',
+                EC: 4,
+                DT: {
+                    submissions: [],
+                    pagination: {
+                        totalRows: 0,
+                        totalPages: 0,
+                        currentPage: 1,
+                        limit: filters.limit || 10
+                    },
+                    stats: { total: 0, pending: 0, graded: 0 },
+                    filterOptions: {
+                        jobPostings: jobOptions
+                    }
+                }
+            };
+        }
+
+        let testIds = tests.map(test => test.id);
+
+        if (filters.jobPostingId && filters.jobPostingId !== 'all') {
+            const targetJobId = parseInt(filters.jobPostingId);
+            const filteredTestIds = tests
+                .filter(test => test.jobPostingId === targetJobId)
+                .map(test => test.id);
+
+            if (filteredTestIds.length === 0) {
+                return {
+                    EM: 'Tin tuyển dụng này chưa có bài test!',
+                    EC: 0,
+                    DT: {
+                        submissions: [],
+                        pagination: {
+                            totalRows: 0,
+                            totalPages: 0,
+                            currentPage: 1,
+                            limit: filters.limit || 10
+                        },
+                        stats: { total: 0, pending: 0, graded: 0 },
+                        filterOptions: {
+                            jobPostings: jobOptions
+                        }
+                    }
+                };
+            }
+
+            testIds = filteredTestIds;
+        }
+
+        const allowedStatuses = ['danop', 'dacham'];
+
+        const baseWhere = {
+            testId: testIds
+        };
+
+        if (filters.status && filters.status !== 'all') {
+            baseWhere.Trangthai = filters.status;
+        } else {
+            baseWhere.Trangthai = { [Op.in]: allowedStatuses };
+        }
+
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        const userInclude = {
+            model: db.User,
+            as: 'User',
+            attributes: ['id', 'Hoten', 'email', 'SDT']
+        };
+
+        if (filters.search && filters.search.trim() !== '') {
+            const keyword = filters.search.trim();
+            userInclude.where = {
+                [Op.or]: [
+                    { Hoten: { [Op.like]: `%${keyword}%` } },
+                    { email: { [Op.like]: `%${keyword}%` } },
+                    { SDT: { [Op.like]: `%${keyword}%` } }
+                ]
+            };
+            userInclude.required = true;
+        }
+
+        const { count, rows } = await db.TestSubmission.findAndCountAll({
+            where: baseWhere,
+            include: [
+                {
+                    model: db.Test,
+                    as: 'Test',
+                    attributes: ['id', 'Tieude', 'jobPostingId', 'Tongdiem'],
+                    include: [{
+                        model: db.JobPosting,
+                        as: 'JobPosting',
+                        attributes: ['id', 'Tieude'],
+                        include: [{
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty']
+                        }]
+                    }]
+                },
+                userInclude,
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id', 'applicationStatusId']
+                }
+            ],
+            order: [['updatedAt', 'DESC']],
+            limit,
+            offset
+        });
+
+        const totalPages = Math.ceil(count / limit);
+
+        const [totalSubmissions, awaitingGrading, graded] = await Promise.all([
+            db.TestSubmission.count({ where: { testId: testIds, Trangthai: { [Op.in]: allowedStatuses } } }),
+            db.TestSubmission.count({ where: { testId: testIds, Trangthai: 'danop' } }),
+            db.TestSubmission.count({ where: { testId: testIds, Trangthai: 'dacham' } })
+        ]);
+
+        return {
+            EM: 'Lấy danh sách bài test đã nộp thành công!',
+            EC: 0,
+            DT: {
+                submissions: rows.map(row => row.toJSON()),
+                pagination: {
+                    totalRows: count,
+                    totalPages,
+                    currentPage: page,
+                    limit
+                },
+                stats: {
+                    total: totalSubmissions,
+                    pending: awaitingGrading,
+                    graded
+                },
+                filterOptions: {
+                    jobPostings: jobOptions
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Error in getTestSubmissionsForHr:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách bài test đã nộp!',
+            EC: -1,
+            DT: ''
+        };
+    }
+};
+
 // =====================================================
 // COMPANY PROFILE MANAGEMENT
 // =====================================================
@@ -1475,5 +1706,6 @@ export default {
     getApplicationDetail,
     updateApplicationStatus,
     getCompanyProfile,
-    updateCompanyProfile
+    updateCompanyProfile,
+    getTestSubmissionsForHr
 };
