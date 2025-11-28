@@ -765,6 +765,140 @@ const updateTest = async (userId, testId, data) => {
 };
 
 /**
+ * Xóa bài test
+ * @param {number} userId - ID của HR
+ * @param {number} testId - ID bài test
+ * @returns {object} - Kết quả
+ */
+const deleteTest = async (userId, testId) => {
+    const transaction = await db.sequelize.transaction();
+    
+    try {
+        if (!userId || !testId) {
+            await transaction.rollback();
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Kiểm tra quyền truy cập
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id'],
+            transaction
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            await transaction.rollback();
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Tìm bài test
+        const test = await db.Test.findOne({
+            where: { id: testId },
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                where: { recruiterId: recruiterIds }
+            }],
+            transaction
+        });
+
+        if (!test) {
+            await transaction.rollback();
+            return {
+                EM: 'Không tìm thấy bài test hoặc bạn không có quyền xóa!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Kiểm tra trạng thái - chỉ cho phép xóa test "Chưa bắt đầu"
+        if (!test.Trangthai) {
+            await transaction.rollback();
+            return {
+                EM: 'Không thể xóa bài test không hoạt động!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        const endDate = test.Ngayhethan ? new Date(test.Ngayhethan) : null;
+
+        // Đã hết hạn
+        if (endDate && now > endDate) {
+            await transaction.rollback();
+            return {
+                EM: 'Không thể xóa bài test đã hết hạn!',
+                EC: 5,
+                DT: null
+            };
+        }
+
+        // Đã bắt đầu (không phải "Chưa bắt đầu")
+        if (!startDate || now >= startDate) {
+            await transaction.rollback();
+            return {
+                EM: 'Chỉ có thể xóa bài test ở trạng thái "Chưa bắt đầu"!',
+                EC: 6,
+                DT: null
+            };
+        }
+
+        // Kiểm tra xem có submission nào đã được tạo chưa
+        const submissionCount = await db.TestSubmission.count({
+            where: { testId },
+            transaction
+        });
+
+        if (submissionCount > 0) {
+            await transaction.rollback();
+            return {
+                EM: 'Không thể xóa bài test đã có ứng viên làm bài!',
+                EC: 7,
+                DT: null
+            };
+        }
+
+        // Xóa tất cả câu hỏi liên quan
+        await db.TestQuestion.destroy({
+            where: { testId },
+            transaction
+        });
+
+        // Xóa bài test
+        await test.destroy({ transaction });
+
+        await transaction.commit();
+
+        return {
+            EM: 'Xóa bài test thành công!',
+            EC: 0,
+            DT: { testId }
+        };
+
+    } catch (error) {
+        await transaction.rollback();
+        console.error('Error in deleteTest:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi xóa bài test!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
  * Cập nhật câu hỏi
  * @param {number} userId - ID của HR
  * @param {number} questionId - ID câu hỏi
@@ -967,6 +1101,7 @@ export default {
     getMyTests,
     getTestDetail,
     updateTest,
+    deleteTest,
     updateQuestion,
     deleteQuestion
 };
