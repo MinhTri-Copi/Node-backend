@@ -201,6 +201,37 @@ const addQuestion = async (userId, testId, questionData) => {
             };
         }
 
+        // Kiểm tra trạng thái test - chỉ cho phép thêm câu hỏi khi test ở trạng thái "Chưa bắt đầu"
+        if (!test.Trangthai) {
+            return {
+                EM: 'Không thể thêm câu hỏi vào bài test không hoạt động!',
+                EC: 5,
+                DT: null
+            };
+        }
+
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        const endDate = test.Ngayhethan ? new Date(test.Ngayhethan) : null;
+
+        // Đã hết hạn
+        if (endDate && now > endDate) {
+            return {
+                EM: 'Không thể thêm câu hỏi vào bài test đã hết hạn!',
+                EC: 6,
+                DT: null
+            };
+        }
+
+        // Đã bắt đầu (không phải "Chưa bắt đầu")
+        if (!startDate || now >= startDate) {
+            return {
+                EM: 'Chỉ có thể thêm câu hỏi khi bài test ở trạng thái "Chưa bắt đầu"!',
+                EC: 7,
+                DT: null
+            };
+        }
+
         // Lấy thứ tự câu hỏi tiếp theo
         const maxThutu = await db.TestQuestion.max('Thutu', {
             where: { testId }
@@ -288,6 +319,37 @@ const addMultipleQuestions = async (userId, testId, questions) => {
             return {
                 EM: 'Bạn không có quyền thêm câu hỏi vào bài test này!',
                 EC: 4,
+                DT: null
+            };
+        }
+
+        // Kiểm tra trạng thái test - chỉ cho phép thêm câu hỏi khi test ở trạng thái "Chưa bắt đầu"
+        if (!test.Trangthai) {
+            return {
+                EM: 'Không thể thêm câu hỏi vào bài test không hoạt động!',
+                EC: 5,
+                DT: null
+            };
+        }
+
+        const now = new Date();
+        const startDate = test.Ngaybatdau ? new Date(test.Ngaybatdau) : null;
+        const endDate = test.Ngayhethan ? new Date(test.Ngayhethan) : null;
+
+        // Đã hết hạn
+        if (endDate && now > endDate) {
+            return {
+                EM: 'Không thể thêm câu hỏi vào bài test đã hết hạn!',
+                EC: 6,
+                DT: null
+            };
+        }
+
+        // Đã bắt đầu (không phải "Chưa bắt đầu")
+        if (!startDate || now >= startDate) {
+            return {
+                EM: 'Chỉ có thể thêm câu hỏi khi bài test ở trạng thái "Chưa bắt đầu"!',
+                EC: 7,
                 DT: null
             };
         }
