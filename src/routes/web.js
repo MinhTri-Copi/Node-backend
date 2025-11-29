@@ -10,6 +10,7 @@ import statisticsHrController from '../controller/statisticsHrController';
 import utilityController from '../controller/utilityController';
 import testController from '../controller/testController';
 import testSubmissionController from '../controller/testSubmissionController';
+import violationController from '../controller/violationController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -98,6 +99,11 @@ const initWebRoutes = (app) => {
     app.get("/api/test-submissions/:submissionId/result", testSubmissionController.getSubmissionResult);
     app.post("/api/test-submissions/:submissionId/auto-grade", testSubmissionController.autoGradeSubmission);
     app.get("/api/candidate/test-submissions", testSubmissionController.getMyTestSubmissions);
+
+    // API Violation Logging (Anti-cheat)
+    app.post("/api/violations/log", violationController.logViolation);
+    app.get("/api/violations/:submissionId/count", violationController.getViolationCount);
+    app.get("/api/violations/:submissionId", violationController.getViolationsForSubmission);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
