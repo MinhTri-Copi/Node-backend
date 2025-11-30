@@ -14,6 +14,7 @@ import violationController from '../controller/violationController';
 import interviewRoundController from '../controller/interviewRoundController';
 import meetingController from '../controller/meetingController';
 import upload from '../middleware/uploadCV';
+import verifyJWT from '../middleware/verifyJWT';
 
 const router = express.Router();
 
@@ -32,15 +33,15 @@ const initWebRoutes = (app) => {
     app.get("/api/companies/search", companyController.searchCompany);
     app.get("/api/companies/:id", companyController.getCompanyById);
     
-    // API Record
-    app.get("/api/records", recordController.getMyRecords);
-    app.get("/api/records/:id", recordController.getRecordById);
-    app.post("/api/records", recordController.createRecord);
-    app.put("/api/records/:id", recordController.updateRecord);
-    app.delete("/api/records/:id", recordController.deleteRecord);
-    
-    // API Upload CV
-    app.post("/api/upload-cv", upload.single('cv'), recordController.uploadCV);
+    // API Record (Require JWT)
+    app.get("/api/records", verifyJWT.verifyJWT, recordController.getMyRecords);
+    app.get("/api/records/:id", verifyJWT.verifyJWT, recordController.getRecordById);
+    app.post("/api/records", verifyJWT.verifyJWT, recordController.createRecord);
+    app.put("/api/records/:id", verifyJWT.verifyJWT, recordController.updateRecord);
+    app.delete("/api/records/:id", verifyJWT.verifyJWT, recordController.deleteRecord);
+
+    // API Upload CV (Require JWT)
+    app.post("/api/upload-cv", verifyJWT.verifyJWT, upload.single('cv'), recordController.uploadCV);
     
     // API Job Posting
     app.get("/api/jobs", jobPostingController.getListJobPosting);
@@ -50,77 +51,79 @@ const initWebRoutes = (app) => {
     app.put("/api/jobs/:id", jobPostingController.updateJobPosting);
     app.delete("/api/jobs/:id", jobPostingController.deleteJobPosting);
 
-    // API Job Application
-    app.post("/api/job-applications", jobApplicationController.applyJob);
-    app.get("/api/job-applications/check", jobApplicationController.checkApplied);
-    app.get("/api/job-applications", jobApplicationController.getMyApplications);
-    app.post("/api/job-applications/tests/start", jobApplicationController.startTest);
-    app.get("/api/job-applications/tests/submissions/:submissionId", jobApplicationController.getTestSubmissionDetail);
+    // API Job Application (Require JWT)
+    app.post("/api/job-applications", verifyJWT.verifyJWT, jobApplicationController.applyJob);
+    app.get("/api/job-applications/check", verifyJWT.verifyJWT, jobApplicationController.checkApplied);
+    app.get("/api/job-applications", verifyJWT.verifyJWT, jobApplicationController.getMyApplications);
+    app.post("/api/job-applications/tests/start", verifyJWT.verifyJWT, jobApplicationController.startTest);
+    app.get("/api/job-applications/tests/submissions/:submissionId", verifyJWT.verifyJWT, jobApplicationController.getTestSubmissionDetail);
 
-    // API HR Dashboard
-    app.get("/api/hr/dashboard", hrController.getDashboard);
-    app.get("/api/hr/job-postings", hrController.getMyJobPostings);
-    app.get("/api/hr/job-postings/detail", hrController.getJobPostingDetail);
-    app.post("/api/hr/job-postings", hrController.createJobPosting);
-    app.put("/api/hr/job-postings/:jobId", hrController.updateJobPosting);
-    app.delete("/api/hr/job-postings/:jobId", hrController.deleteJobPosting);
-    app.get("/api/hr/my-companies", hrController.getMyCompanies);
+    // API HR Dashboard (Require JWT + HR Role)
+    app.get("/api/hr/dashboard", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getDashboard);
+    app.get("/api/hr/job-postings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getMyJobPostings);
+    app.get("/api/hr/job-postings/detail", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getJobPostingDetail);
+    app.post("/api/hr/job-postings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.createJobPosting);
+    app.put("/api/hr/job-postings/:jobId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.updateJobPosting);
+    app.delete("/api/hr/job-postings/:jobId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.deleteJobPosting);
+    app.get("/api/hr/my-companies", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getMyCompanies);
 
-    // API HR Candidate Management
-    app.get("/api/hr/active-jobs", hrController.getActiveJobPostings); // Get job postings with applications
-    app.get("/api/hr/applications", hrController.getJobApplications);
-    app.get("/api/hr/applications/statistics", hrController.getApplicationStatistics);
-    app.get("/api/hr/applications/detail", hrController.getApplicationDetail);
-    app.put("/api/hr/applications/:applicationId", hrController.updateApplicationStatus);
-    app.get("/api/hr/test-submissions", hrController.getTestSubmissions);
+    // API HR Candidate Management (Require JWT + HR Role)
+    app.get("/api/hr/active-jobs", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getActiveJobPostings);
+    app.get("/api/hr/applications", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getJobApplications);
+    app.get("/api/hr/applications/statistics", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getApplicationStatistics);
+    app.get("/api/hr/applications/detail", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getApplicationDetail);
+    app.put("/api/hr/applications/:applicationId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.updateApplicationStatus);
+    app.get("/api/hr/test-submissions", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getTestSubmissions);
 
-    // API HR Company Profile
-    app.get("/api/hr/company-profile", hrController.getCompanyProfile);
-    app.put("/api/hr/company-profile", hrController.updateCompanyProfile);
+    // API HR Company Profile (Require JWT + HR Role)
+    app.get("/api/hr/company-profile", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getCompanyProfile);
+    app.put("/api/hr/company-profile", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.updateCompanyProfile);
 
-    // API HR Statistics
-    app.get("/api/hr/statistics/dashboard", statisticsHrController.getDashboardStatistics);
-    app.get("/api/hr/statistics/trends", statisticsHrController.getApplicationTrends);
+    // API HR Statistics (Require JWT + HR Role)
+    app.get("/api/hr/statistics/dashboard", verifyJWT.verifyJWT, verifyJWT.requireRole(2), statisticsHrController.getDashboardStatistics);
+    app.get("/api/hr/statistics/trends", verifyJWT.verifyJWT, verifyJWT.requireRole(2), statisticsHrController.getApplicationTrends);
 
-    // API HR Test Management
-    app.post("/api/hr/tests", testController.createTest);
-    app.get("/api/hr/tests", testController.getMyTests);
-    app.get("/api/hr/tests/detail", testController.getTestDetail);
-    app.put("/api/hr/tests/:testId", testController.updateTest);
-    app.delete("/api/hr/tests/:testId", testController.deleteTest);
-    app.post("/api/hr/tests/questions", testController.addQuestion);
-    app.post("/api/hr/tests/questions/bulk", testController.addMultipleQuestions);
-    app.put("/api/hr/tests/questions/:questionId", testController.updateQuestion);
-    app.delete("/api/hr/tests/questions/:questionId", testController.deleteQuestion);
+    // API HR Test Management (Require JWT + HR Role)
+    app.post("/api/hr/tests", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.createTest);
+    app.get("/api/hr/tests", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.getMyTests);
+    app.get("/api/hr/tests/detail", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.getTestDetail);
+    app.put("/api/hr/tests/:testId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.updateTest);
+    app.delete("/api/hr/tests/:testId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.deleteTest);
+    app.post("/api/hr/tests/questions", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.addQuestion);
+    app.post("/api/hr/tests/questions/bulk", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.addMultipleQuestions);
+    app.put("/api/hr/tests/questions/:questionId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.updateQuestion);
+    app.delete("/api/hr/tests/questions/:questionId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.deleteQuestion);
 
-    // API Test Submission & Grading
-    app.post("/api/test-submissions/submit", testSubmissionController.submitTest);
-    app.get("/api/test-submissions/:submissionId/grading", testSubmissionController.getSubmissionForGrading);
-    app.post("/api/test-submissions/answers/:answerId/grade", testSubmissionController.gradeAnswer);
-    app.post("/api/test-submissions/:submissionId/finalize", testSubmissionController.finalizeGrading);
-    app.get("/api/test-submissions/:submissionId/result", testSubmissionController.getSubmissionResult);
-    app.post("/api/test-submissions/:submissionId/auto-grade", testSubmissionController.autoGradeSubmission);
-    app.get("/api/candidate/test-submissions", testSubmissionController.getMyTestSubmissions);
+    // API Test Submission & Grading (Require JWT)
+    app.post("/api/test-submissions/submit", verifyJWT.verifyJWT, testSubmissionController.submitTest);
+    app.get("/api/test-submissions/:submissionId/grading", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testSubmissionController.getSubmissionForGrading);
+    app.post("/api/test-submissions/answers/:answerId/grade", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testSubmissionController.gradeAnswer);
+    app.post("/api/test-submissions/:submissionId/finalize", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testSubmissionController.finalizeGrading);
+    app.get("/api/test-submissions/:submissionId/result", verifyJWT.verifyJWT, testSubmissionController.getSubmissionResult);
+    app.post("/api/test-submissions/:submissionId/auto-grade", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testSubmissionController.autoGradeSubmission);
+    app.get("/api/candidate/test-submissions", verifyJWT.verifyJWT, testSubmissionController.getMyTestSubmissions);
 
-    // API Violation Logging (Anti-cheat)
-    app.post("/api/violations/log", violationController.logViolation);
-    app.get("/api/violations/:submissionId/count", violationController.getViolationCount);
-    app.get("/api/violations/:submissionId", violationController.getViolationsForSubmission);
+    // API Violation Logging (Anti-cheat) (Require JWT)
+    app.post("/api/violations/log", verifyJWT.verifyJWT, violationController.logViolation);
+    app.get("/api/violations/:submissionId/count", verifyJWT.verifyJWT, violationController.getViolationCount);
+    app.get("/api/violations/:submissionId", verifyJWT.verifyJWT, violationController.getViolationsForSubmission);
 
-    // API Interview Round Management
-    app.get("/api/hr/interview-rounds", interviewRoundController.getInterviewRounds);
-    app.post("/api/hr/interview-rounds", interviewRoundController.createInterviewRound);
-    app.put("/api/hr/interview-rounds/:roundId", interviewRoundController.updateInterviewRound);
-    app.delete("/api/hr/interview-rounds/:roundId", interviewRoundController.deleteInterviewRound);
+    // API Interview Round Management (Require JWT + HR Role)
+    app.get("/api/hr/interview-rounds", verifyJWT.verifyJWT, verifyJWT.requireRole(2), interviewRoundController.getInterviewRounds);
+    app.post("/api/hr/interview-rounds", verifyJWT.verifyJWT, verifyJWT.requireRole(2), interviewRoundController.createInterviewRound);
+    app.put("/api/hr/interview-rounds/:roundId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), interviewRoundController.updateInterviewRound);
+    app.delete("/api/hr/interview-rounds/:roundId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), interviewRoundController.deleteInterviewRound);
 
-    // API Meeting Management
-    app.get("/api/hr/meetings", meetingController.getMeetingsForHr);
-    app.get("/api/candidate/meetings", meetingController.getMeetingsForCandidate);
-    app.get("/api/meetings/:meetingId", meetingController.getMeetingById);
-    app.post("/api/hr/meetings", meetingController.createMeeting);
-    app.put("/api/meetings/:meetingId/status", meetingController.updateMeetingStatus);
-    app.put("/api/hr/meetings/:meetingId", meetingController.updateMeeting);
-    app.delete("/api/hr/meetings/:meetingId", meetingController.cancelMeeting);
+    // API Meeting Management (Require JWT)
+    // API tạo lịch phỏng vấn, tạo phòng - Cần JWT
+    app.get("/api/hr/meetings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getMeetingsForHr);
+    app.get("/api/candidate/meetings", verifyJWT.verifyJWT, meetingController.getMeetingsForCandidate);
+    // API lấy roomName để join Jitsi - Cần JWT
+    app.get("/api/meetings/:meetingId", verifyJWT.verifyJWT, meetingController.getMeetingById);
+    app.post("/api/hr/meetings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.createMeeting);
+    app.put("/api/meetings/:meetingId/status", verifyJWT.verifyJWT, meetingController.updateMeetingStatus);
+    app.put("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.updateMeeting);
+    app.delete("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.cancelMeeting);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);

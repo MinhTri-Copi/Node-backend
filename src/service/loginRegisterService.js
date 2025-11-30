@@ -1,5 +1,6 @@
 import db from '../models/index';
 import bcrypt from 'bcryptjs';
+import jwtService from './jwtService';
 
 const salt = bcrypt.genSaltSync(10);
 
@@ -66,10 +67,21 @@ const handleUserLogin = async (email, password) => {
                     // Remove password from response
                     delete user.matKhau;
                     
+                    // Generate JWT token
+                    const token = jwtService.generateToken({
+                        id: user.id,
+                        email: user.email,
+                        roleId: user.roleId,
+                        Hoten: user.Hoten
+                    });
+                    
                     return {
                         EM: 'Đăng nhập thành công!',
                         EC: 0,
-                        DT: user
+                        DT: {
+                            user: user,
+                            token: token
+                        }
                     };
                 } else {
                     return {
@@ -173,7 +185,7 @@ const handleUserRegister = async (data) => {
     }
 };
 
-module.exports = {
+export default {
     handleUserLogin,
     handleUserRegister,
     hashUserPassword,
