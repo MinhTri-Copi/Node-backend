@@ -11,6 +11,8 @@ import utilityController from '../controller/utilityController';
 import testController from '../controller/testController';
 import testSubmissionController from '../controller/testSubmissionController';
 import violationController from '../controller/violationController';
+import interviewRoundController from '../controller/interviewRoundController';
+import meetingController from '../controller/meetingController';
 import upload from '../middleware/uploadCV';
 
 const router = express.Router();
@@ -104,6 +106,21 @@ const initWebRoutes = (app) => {
     app.post("/api/violations/log", violationController.logViolation);
     app.get("/api/violations/:submissionId/count", violationController.getViolationCount);
     app.get("/api/violations/:submissionId", violationController.getViolationsForSubmission);
+
+    // API Interview Round Management
+    app.get("/api/hr/interview-rounds", interviewRoundController.getInterviewRounds);
+    app.post("/api/hr/interview-rounds", interviewRoundController.createInterviewRound);
+    app.put("/api/hr/interview-rounds/:roundId", interviewRoundController.updateInterviewRound);
+    app.delete("/api/hr/interview-rounds/:roundId", interviewRoundController.deleteInterviewRound);
+
+    // API Meeting Management
+    app.get("/api/hr/meetings", meetingController.getMeetingsForHr);
+    app.get("/api/candidate/meetings", meetingController.getMeetingsForCandidate);
+    app.get("/api/meetings/:meetingId", meetingController.getMeetingById);
+    app.post("/api/hr/meetings", meetingController.createMeeting);
+    app.put("/api/meetings/:meetingId/status", meetingController.updateMeetingStatus);
+    app.put("/api/hr/meetings/:meetingId", meetingController.updateMeeting);
+    app.delete("/api/hr/meetings/:meetingId", meetingController.cancelMeeting);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);

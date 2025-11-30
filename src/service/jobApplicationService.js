@@ -174,6 +174,12 @@ const getApplicationsByUser = async (userId) => {
                     attributes: ['id', 'TenTrangThai']
                 },
                 {
+                    model: db.InterviewRound,
+                    as: 'CurrentInterviewRound',
+                    required: false,
+                    attributes: ['id', 'roundNumber', 'title', 'duration', 'description']
+                },
+                {
                     model: db.TestSubmission,
                     as: 'TestSubmissions',
                     required: false,

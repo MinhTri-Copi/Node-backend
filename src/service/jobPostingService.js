@@ -123,6 +123,33 @@ const getListJobPosting = async (page, limit, filters = {}) => {
         const allJobs = Array.from(jobMap.values());
         const totalRows = allJobs.length;
         
+        // Get interview rounds count for each job posting
+        const jobPostingIds = allJobs.map(job => job.id);
+        const roundsCountMap = {};
+        
+        if (jobPostingIds.length > 0) {
+            // Count rounds for each job posting in parallel
+            const countPromises = jobPostingIds.map(async (jobId) => {
+                const count = await db.InterviewRound.count({
+                    where: {
+                        jobPostingId: jobId,
+                        isActive: true
+                    }
+                });
+                return { jobId, count };
+            });
+            
+            const counts = await Promise.all(countPromises);
+            counts.forEach(({ jobId, count }) => {
+                roundsCountMap[jobId] = count;
+            });
+        }
+
+        // Add interview rounds count to each job
+        allJobs.forEach(job => {
+            job.interviewRoundsCount = roundsCountMap[job.id] || 0;
+        });
+        
         // Apply pagination
         let offset = (page - 1) * limit;
         const paginatedJobs = allJobs.slice(offset, offset + limit);
@@ -206,6 +233,19 @@ const getJobPostingById = async (id) => {
         });
 
         jobData.majors = majors.map(m => m.Major);
+
+        // Get interview rounds (active only)
+        const interviewRounds = await db.InterviewRound.findAll({
+            where: {
+                jobPostingId: id,
+                isActive: true
+            },
+            attributes: ['id', 'roundNumber', 'title', 'duration', 'description'],
+            order: [['roundNumber', 'ASC']]
+        });
+
+        jobData.interviewRounds = interviewRounds.map(round => round.toJSON());
+        jobData.interviewRoundsCount = interviewRounds.length;
 
         return {
             EM: 'Lấy thông tin tin tuyển dụng thành công!',

@@ -28,16 +28,22 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'jobApplicationId',
         as: 'Meetings'
       });
+      
+      JobApplication.belongsTo(models.InterviewRound, {
+        foreignKey: 'currentInterviewRoundId',
+        as: 'CurrentInterviewRound'
+      });
     }
   }
   JobApplication.init({
     Thugioithieu: DataTypes.TEXT, 
     Ngaynop: DataTypes.DATE,       
-    Ngaycapnhat: DataTypes.DATE,  
+    Ngaycapnhat: DataTypes.DATE,   
     
     jobPostingId: DataTypes.INTEGER,
     applicationStatusId: DataTypes.INTEGER,
     recordId: DataTypes.INTEGER,
+    currentInterviewRoundId: DataTypes.INTEGER,
   }, {
     sequelize,
     modelName: 'JobApplication',
