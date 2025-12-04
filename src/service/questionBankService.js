@@ -214,15 +214,52 @@ const extractQuestionsWithRegex = (content) => {
             new Map(allMatches.map(m => [m.number, m])).values()
         ).sort((a, b) => a.number - b.number);
 
+        // Try to extract all answers from a separate "Đáp án" section at the end
+        // Many files have format: Questions first, then "Đáp án:" section with all answers
+        const answerMap = new Map();
+        
+        // Find "Đáp án" section (usually at the end) - including "Đáp án mẫu:"
+        const answerSectionMatch = content.match(/(?:Đáp án\s+mẫu|Đáp án|Answer|Trả lời)[:\.]?\s*\n?([\s\S]*?)(?=\n\n\n|$)/i);
+        if (answerSectionMatch) {
+            const answerSection = answerSectionMatch[1];
+            // Extract numbered answers: "Câu 1: ...", "1. ...", etc.
+            const numberedAnswerPattern = /(?:Câu\s+(\d+)|Câu\s+hỏi\s+(\d+)|^(\d+))[\.\):]?\s*(.+?)(?=Câu\s+\d+|Câu\s+hỏi\s+\d+|^\d+[\.\)]|$)/gims;
+            const numberedAnswers = [...answerSection.matchAll(numberedAnswerPattern)];
+            for (const numAnswer of numberedAnswers) {
+                const qNum = parseInt(numAnswer[1] || numAnswer[2] || numAnswer[3]);
+                const answer = numAnswer[4].trim();
+                if (qNum && answer && answer.length > 3) {
+                    answerMap.set(qNum, answer);
+                }
+            }
+            
+            // Also handle answers without numbers (directly after "Đáp án mẫu:")
+            // Split by double newlines or question patterns to get individual answers
+            if (numberedAnswers.length === 0) {
+                // Try to split answers by double newlines or patterns
+                const unnumberedAnswers = answerSection.split(/\n\n+/).filter(a => a.trim().length > 10);
+                // Map first answer to first question, second to second, etc.
+                unnumberedAnswers.forEach((answer, index) => {
+                    const qNum = index + 1; // Start from 1
+                    const cleanAnswer = answer.trim().replace(/^(Đáp án\s+mẫu|Đáp án|Answer|Trả lời)[:\.]\s*/i, '').trim();
+                    if (cleanAnswer && cleanAnswer.length > 3) {
+                        answerMap.set(qNum, cleanAnswer);
+                    }
+                });
+            }
+        }
+
         // Extract question and answer from each match
         for (const match of uniqueMatches) {
             const text = match.text.trim();
             
-            // Try to find answer patterns
+            // Try to find answer patterns (including "Đáp án mẫu:", "Đáp án:", etc.)
+            // QUAN TRỌNG: Dừng trước câu hỏi tiếp theo HOẶC trước "Đáp án mẫu:" của câu tiếp theo
             const answerPatterns = [
-                /Đáp án[:\.]\s*(.+?)(?=Câu|Question|Q\s*\d+|$)/gis,
-                /Answer[:\.]\s*(.+?)(?=Câu|Question|Q\s*\d+|$)/gis,
-                /Trả lời[:\.]\s*(.+?)(?=Câu|Question|Q\s*\d+|$)/gis
+                /Đáp án\s+mẫu[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/gis,
+                /Đáp án[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/gis,
+                /Answer[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Answer|$)/gis,
+                /Trả lời[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Trả lời|$)/gis
             ];
 
             let questionText = text;
@@ -240,15 +277,64 @@ const extractQuestionsWithRegex = (content) => {
 
             // If no answer found, try to split by common separators
             if (!answerText) {
-                const separators = ['\n\n', '\n---', '\n===', '\nĐáp án', '\nAnswer'];
+                const separators = [
+                    '\n\nĐáp án mẫu',
+                    '\nĐáp án mẫu',
+                    '\n\nĐáp án',
+                    '\nĐáp án',
+                    '\n\nAnswer',
+                    '\nAnswer',
+                    '\n\nTrả lời',
+                    '\nTrả lời',
+                    '\n\n',
+                    '\n---',
+                    '\n==='
+                ];
                 for (const sep of separators) {
                     const parts = text.split(sep);
                     if (parts.length >= 2) {
                         questionText = parts[0].trim();
-                        answerText = parts.slice(1).join(sep).trim();
-                        break;
+                        let rawAnswer = parts.slice(1).join(sep).trim();
+                        // Remove "Đáp án mẫu:", "Đáp án:", etc. prefix if exists
+                        rawAnswer = rawAnswer.replace(/^(Đáp án\s+mẫu|Đáp án|Answer|Trả lời)[:\.]\s*/i, '').trim();
+                        
+                        // QUAN TRỌNG: Chỉ lấy đáp án đến khi gặp câu hỏi tiếp theo
+                        // Dừng trước: số + dấu chấm, "Câu X", "Đáp án mẫu:" của câu tiếp theo, section marker
+                        const answerEndMatch = rawAnswer.match(/(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/s);
+                        answerText = answerEndMatch ? answerEndMatch[1].trim() : rawAnswer.trim();
+                        
+                        if (answerText) break;
                     }
                 }
+            }
+            
+            // Try to find answer in next section (if answer is after question pattern)
+            // This handles cases where answer is separated by newlines from question
+            if (!answerText) {
+                const currentMatchIndex = content.indexOf(match.fullMatch);
+                if (currentMatchIndex !== -1) {
+                    const searchStart = currentMatchIndex + match.fullMatch.length;
+                    // Find the next question to limit search range
+                    const nextQuestionMatch = content.substring(searchStart).match(/(?:^\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+)/m);
+                    const searchEnd = nextQuestionMatch 
+                        ? searchStart + nextQuestionMatch.index 
+                        : Math.min(searchStart + 2000, content.length);
+                    const nextSection = content.substring(searchStart, searchEnd);
+                    
+                    // Look for answer patterns in next section (including "Đáp án mẫu:")
+                    // Dừng trước câu hỏi tiếp theo hoặc "Đáp án mẫu:" của câu tiếp theo
+                    const answerInNext = nextSection.match(/(?:Đáp án\s+mẫu|Đáp án|Answer|Trả lời)[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/is);
+                    if (answerInNext) {
+                        answerText = answerInNext[1].trim();
+                        // Clean up: remove leading/trailing whitespace and newlines
+                        answerText = answerText.replace(/^\s+|\s+$/g, '').replace(/\n{3,}/g, '\n\n');
+                    }
+                }
+            }
+            
+            // Try to get answer from answer section map (if answers are in a separate section)
+            if (!answerText && answerMap.has(match.number)) {
+                answerText = answerMap.get(match.number);
             }
 
             // Clean up question and answer
@@ -273,6 +359,11 @@ const extractQuestionsWithRegex = (content) => {
         }
 
         console.log(`✅ Đã extract ${questions.length} câu hỏi bằng regex`);
+        
+        // Debug: Log số câu hỏi có đáp án
+        const questionsWithAnswer = questions.filter(q => q.answer && q.answer !== 'Chưa có đáp án').length;
+        console.log(`  📊 Số câu hỏi có đáp án: ${questionsWithAnswer}/${questions.length}`);
+        
         return questions;
     } catch (error) {
         console.error('Error extracting questions with regex:', error);
@@ -394,7 +485,7 @@ Trả về ĐÚNG ${questions.length} phần tử JSON array. Mỗi field chỉ 
             ],
             temperature: 0,
             top_p: 0.1,
-            max_tokens: questions.length * 25 + 100 // Tăng để đủ cho tất cả items
+            max_tokens: Math.max(800, questions.length * 30 + 200) // Tăng đáng kể để đủ cho batch lớn
         });
 
         const responseText = response.choices[0]?.message?.content || '';
@@ -612,6 +703,10 @@ const uploadQuestionBank = async (userId, file, data) => {
         const extractedQuestions = extractQuestionsWithRegex(content);
         const extractTime = Date.now() - startTime;
         console.log(`✅ Đã extract ${extractedQuestions.length} câu hỏi trong ${extractTime}ms`);
+        
+        // Debug: Log số câu hỏi có đáp án
+        const questionsWithAnswer = extractedQuestions.filter(q => q.answer && q.answer !== 'Chưa có đáp án').length;
+        console.log(`  📊 Số câu hỏi có đáp án: ${questionsWithAnswer}/${extractedQuestions.length}`);
 
         if (!extractedQuestions || extractedQuestions.length === 0) {
             await transaction.rollback();
@@ -660,16 +755,26 @@ const uploadQuestionBank = async (userId, file, data) => {
         }
         
         // Merge questions with their classifications
-        const classifiedQuestions = extractedQuestions.map((q, index) => ({
-            ...q,
-            ...(allClassifications[index] || {
+        // QUAN TRỌNG: Giữ nguyên answer từ extractedQuestions (không bị mất khi merge)
+        const classifiedQuestions = extractedQuestions.map((q, index) => {
+            const classification = allClassifications[index] || {
                 loaicauhoi: 'tuluan',
                 chude: 'Khác',
                 dodai: 'trungbinh',
                 dokho: 'trungbinh',
                 metadata: []
-            })
-        }));
+            };
+            
+            return {
+                question: q.question || '',
+                answer: q.answer || 'Chưa có đáp án', // Đảm bảo answer được giữ lại
+                loaicauhoi: classification.loaicauhoi,
+                chude: classification.chude,
+                dodai: classification.dodai,
+                dokho: classification.dokho,
+                metadata: classification.metadata || []
+            };
+        });
         
         const classificationTime = Date.now() - classificationStartTime;
         console.log(`✅ Đã phân loại ${classifiedQuestions.length} câu hỏi trong ${classificationTime}ms (${(classificationTime / 1000).toFixed(2)}s)`);
