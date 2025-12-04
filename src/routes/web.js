@@ -118,12 +118,16 @@ const initWebRoutes = (app) => {
     // API tạo lịch phỏng vấn, tạo phòng - Cần JWT
     app.get("/api/hr/meetings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getMeetingsForHr);
     app.get("/api/candidate/meetings", verifyJWT.verifyJWT, meetingController.getMeetingsForCandidate);
-    // API lấy roomName để join Jitsi - Cần JWT
+    // API lấy meeting by roomName hoặc meetingId - Cần JWT
+    app.get("/api/meetings/room/:roomName", verifyJWT.verifyJWT, meetingController.getMeetingByRoomName);
     app.get("/api/meetings/:meetingId", verifyJWT.verifyJWT, meetingController.getMeetingById);
     app.post("/api/hr/meetings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.createMeeting);
     app.put("/api/meetings/:meetingId/status", verifyJWT.verifyJWT, meetingController.updateMeetingStatus);
     app.put("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.updateMeeting);
     app.delete("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.cancelMeeting);
+    // API lấy danh sách ứng viên và meeting gần nhất theo JobPosting
+    app.get("/api/hr/meetings/candidates", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getCandidatesByJobPosting);
+    app.get("/api/hr/meetings/latest", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getLatestMeetingByJobPosting);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);

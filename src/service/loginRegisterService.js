@@ -43,7 +43,7 @@ const handleUserLogin = async (email, password) => {
             // User exists, check password
             let user = await db.User.findOne({
                 where: { email: email },
-                attributes: ['id', 'email', 'matKhau', 'Hoten', 'roleId'],
+                attributes: ['id', 'email', 'matKhau', 'Hoten', 'roleId', 'SDT'],
                 include: [
                     {
                         model: db.Role,

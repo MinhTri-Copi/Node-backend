@@ -73,6 +73,40 @@ const getMeetingsForCandidate = async (req, res) => {
     }
 };
 
+const getMeetingByRoomName = async (req, res) => {
+    try {
+        const { roomName } = req.params;
+        
+        // Use userId from JWT token (more secure than query param)
+        const userId = req.user?.id;
+        
+        console.log('getMeetingByRoomName controller - roomName:', roomName, 'userId from JWT:', userId);
+
+        if (!roomName || !userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await meetingService.getMeetingByRoomName(roomName, userId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getMeetingByRoomName controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 const getMeetingById = async (req, res) => {
     try {
         const { meetingId } = req.params;
@@ -224,13 +258,78 @@ const cancelMeeting = async (req, res) => {
     }
 };
 
+const getCandidatesByJobPosting = async (req, res) => {
+    try {
+        const { userId, jobPostingId, interviewRoundId } = req.query;
+
+        if (!userId || !jobPostingId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await meetingService.getCandidatesByJobPosting(
+            userId, 
+            jobPostingId, 
+            interviewRoundId ? parseInt(interviewRoundId) : null
+        );
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getCandidatesByJobPosting controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
+const getLatestMeetingByJobPosting = async (req, res) => {
+    try {
+        const { userId, jobPostingId } = req.query;
+
+        if (!userId || !jobPostingId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await meetingService.getLatestMeetingByJobPosting(userId, jobPostingId);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getLatestMeetingByJobPosting controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 module.exports = {
     getMeetingsForHr,
     getMeetingsForCandidate,
+    getMeetingByRoomName,
     getMeetingById,
     createMeeting,
     updateMeetingStatus,
     updateMeeting,
-    cancelMeeting
+    cancelMeeting,
+    getCandidatesByJobPosting,
+    getLatestMeetingByJobPosting
 };
 

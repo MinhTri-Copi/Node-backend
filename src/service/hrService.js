@@ -177,6 +177,23 @@ const getMyJobPostings = async (userId, page = 1, limit = 10) => {
 
         const recruiterIds = recruiters.map(r => r.id);
 
+        // Tự động chuyển trạng thái từ "Đang tuyển" (1) sang "Ngừng tuyển" (2) nếu đã hết hạn
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set về đầu ngày để so sánh
+
+        await db.JobPosting.update(
+            { TrangthaiId: 2 }, // Ngừng tuyển
+            {
+                where: {
+                    recruiterId: recruiterIds,
+                    TrangthaiId: 1, // Đang tuyển
+                    Ngayhethan: {
+                        [Op.lte]: today // Ngày hết hạn <= ngày hiện tại
+                    }
+                }
+            }
+        );
+
         // Thống kê
         const allJobs = await db.JobPosting.findAll({
             where: { recruiterId: recruiterIds },

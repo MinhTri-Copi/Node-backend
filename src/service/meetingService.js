@@ -169,6 +169,106 @@ const getMeetingsForCandidate = async (userId, filters = {}) => {
 };
 
 /**
+ * Get meeting by roomName
+ */
+const getMeetingByRoomName = async (roomName, userId) => {
+    try {
+        if (!roomName || !userId) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const meeting = await db.Meeting.findOne({
+            where: { roomName },
+            include: [
+                {
+                    model: db.InterviewRound,
+                    as: 'InterviewRound',
+                    attributes: ['id', 'roundNumber', 'title', 'duration', 'description']
+                },
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id'],
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty']
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: db.User,
+                    as: 'HR',
+                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                },
+                {
+                    model: db.User,
+                    as: 'Candidate',
+                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                }
+            ]
+        });
+
+        if (!meeting) {
+            return {
+                EM: 'Không tìm thấy phòng phỏng vấn!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Check if user has permission (HR or Candidate)
+        // Convert to numbers for comparison (userId from query is string)
+        const hrUserId = parseInt(meeting.hrUserId);
+        const candidateUserId = parseInt(meeting.candidateUserId);
+        const requestUserId = parseInt(userId);
+        
+        console.log('Permission check:', {
+            roomName,
+            requestUserId,
+            hrUserId,
+            candidateUserId,
+            isHR: hrUserId === requestUserId,
+            isCandidate: candidateUserId === requestUserId
+        });
+        
+        if (hrUserId !== requestUserId && candidateUserId !== requestUserId) {
+            console.log('❌ Access denied - User ID mismatch');
+            return {
+                EM: 'Bạn không có quyền truy cập phòng này!',
+                EC: 3,
+                DT: null
+            };
+        }
+        
+        console.log('✅ Access granted');
+
+        return {
+            EM: 'Lấy thông tin meeting thành công!',
+            EC: 0,
+            DT: meeting.toJSON()
+        };
+    } catch (error) {
+        console.error('Error in getMeetingByRoomName:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy thông tin meeting!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
  * Get meeting by ID
  */
 const getMeetingById = async (meetingId, userId, userRole = 'hr') => {
@@ -670,13 +770,216 @@ const cancelMeeting = async (meetingId, userId) => {
     }
 };
 
+/**
+ * Get candidates (applications) for a specific job posting
+ * @param {number} userId - HR user ID
+ * @param {number} jobPostingId - Job posting ID
+ * @param {number} interviewRoundId - (Optional) Interview round ID to filter out candidates who already have meeting for this round
+ */
+const getCandidatesByJobPosting = async (userId, jobPostingId, interviewRoundId = null) => {
+    try {
+        if (!userId || !jobPostingId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Verify HR owns this job posting
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn không có quyền truy cập!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        const jobPosting = await db.JobPosting.findOne({
+            where: {
+                id: jobPostingId,
+                recruiterId: recruiterIds
+            }
+        });
+
+        if (!jobPosting) {
+            return {
+                EM: 'Không tìm thấy tin tuyển dụng hoặc bạn không có quyền truy cập!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Get applications for this job posting with status = 7 (Chuẩn bị phỏng vấn)
+        const applications = await db.JobApplication.findAll({
+            where: {
+                jobPostingId: jobPostingId,
+                applicationStatusId: 7 // Chuẩn bị phỏng vấn
+            },
+            include: [
+                {
+                    model: db.Record,
+                    include: [
+                        {
+                            model: db.User,
+                            attributes: ['id', 'Hoten', 'email', 'SDT']
+                        }
+                    ]
+                }
+            ],
+            order: [['Ngaynop', 'DESC']]
+        });
+
+        // If interviewRoundId is provided, filter out candidates who already have meeting for this round
+        let candidateIdsToExclude = [];
+        if (interviewRoundId) {
+            const existingMeetings = await db.Meeting.findAll({
+                where: {
+                    interviewRoundId: interviewRoundId,
+                    hrUserId: userId,
+                    status: {
+                        [Op.ne]: 'cancel' // Exclude cancelled meetings
+                    }
+                },
+                attributes: ['candidateUserId']
+            });
+            candidateIdsToExclude = existingMeetings.map(m => m.candidateUserId);
+        }
+
+        // Filter applications to exclude candidates who already have meeting for this round
+        const filteredApplications = applications.filter(app => {
+            const candidateId = app.Record?.User?.id;
+            return !candidateIdsToExclude.includes(candidateId);
+        });
+
+        return {
+            EM: 'Lấy danh sách ứng viên thành công!',
+            EC: 0,
+            DT: filteredApplications.map(app => ({
+                applicationId: app.id,
+                candidateId: app.Record?.User?.id,
+                candidateName: app.Record?.User?.Hoten,
+                candidateEmail: app.Record?.User?.email,
+                candidatePhone: app.Record?.User?.SDT,
+                recordId: app.recordId
+            }))
+        };
+    } catch (error) {
+        console.error('Error in getCandidatesByJobPosting:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách ứng viên!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Get latest meeting for a job posting to suggest next meeting time
+ */
+const getLatestMeetingByJobPosting = async (userId, jobPostingId) => {
+    try {
+        if (!userId || !jobPostingId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Verify HR owns this job posting
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn không có quyền truy cập!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        const jobPosting = await db.JobPosting.findOne({
+            where: {
+                id: jobPostingId,
+                recruiterId: recruiterIds
+            }
+        });
+
+        if (!jobPosting) {
+            return {
+                EM: 'Không tìm thấy tin tuyển dụng!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Get latest meeting for this job posting
+        const latestMeeting = await db.Meeting.findOne({
+            where: {
+                hrUserId: userId
+            },
+            include: [
+                {
+                    model: db.JobApplication,
+                    where: { jobPostingId: jobPostingId },
+                    attributes: ['id']
+                },
+                {
+                    model: db.InterviewRound,
+                    attributes: ['id', 'duration']
+                }
+            ],
+            order: [['scheduledAt', 'DESC']]
+        });
+
+        if (!latestMeeting) {
+            return {
+                EM: 'Chưa có meeting nào cho tin tuyển dụng này!',
+                EC: 0,
+                DT: null
+            };
+        }
+
+        return {
+            EM: 'Lấy meeting gần nhất thành công!',
+            EC: 0,
+            DT: {
+                scheduledAt: latestMeeting.scheduledAt,
+                duration: latestMeeting.InterviewRound?.duration || 0
+            }
+        };
+    } catch (error) {
+        console.error('Error in getLatestMeetingByJobPosting:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy meeting gần nhất!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 module.exports = {
     getMeetingsForHr,
     getMeetingsForCandidate,
+    getMeetingByRoomName,
     getMeetingById,
     createMeeting,
     updateMeetingStatus,
     updateMeeting,
-    cancelMeeting
+    cancelMeeting,
+    getCandidatesByJobPosting,
+    getLatestMeetingByJobPosting
 };
 
