@@ -13,7 +13,9 @@ import testSubmissionController from '../controller/testSubmissionController';
 import violationController from '../controller/violationController';
 import interviewRoundController from '../controller/interviewRoundController';
 import meetingController from '../controller/meetingController';
+import questionBankController from '../controller/questionBankController';
 import upload from '../middleware/uploadCV';
+import uploadQuestionBank from '../middleware/uploadQuestionBank';
 import verifyJWT from '../middleware/verifyJWT';
 
 const router = express.Router();
@@ -93,6 +95,12 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/tests/questions/bulk", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.addMultipleQuestions);
     app.put("/api/hr/tests/questions/:questionId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.updateQuestion);
     app.delete("/api/hr/tests/questions/:questionId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), testController.deleteQuestion);
+
+    // API HR Question Bank Management (Require JWT + HR Role)
+    app.post("/api/hr/question-banks/upload", verifyJWT.verifyJWT, verifyJWT.requireRole(2), uploadQuestionBank.single('file'), questionBankController.uploadQuestionBank);
+    app.get("/api/hr/question-banks", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBanks);
+    app.get("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankDetail);
+    app.delete("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.deleteQuestionBank);
 
     // API Test Submission & Grading (Require JWT)
     app.post("/api/test-submissions/submit", verifyJWT.verifyJWT, testSubmissionController.submitTest);
