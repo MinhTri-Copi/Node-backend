@@ -141,10 +141,49 @@ const deleteQuestionBank = async (req, res) => {
     }
 };
 
+/**
+ * Update question bank item
+ */
+const updateQuestionBankItem = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const { itemId } = req.params;
+        const updateData = req.body;
+
+        if (!userId || !itemId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await questionBankService.updateQuestionBankItem(
+            parseInt(userId),
+            parseInt(itemId),
+            updateData
+        );
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in updateQuestionBankItem controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 export default {
     uploadQuestionBank,
     getQuestionBanks,
     getQuestionBankDetail,
-    deleteQuestionBank
+    deleteQuestionBank,
+    updateQuestionBankItem
 };
 

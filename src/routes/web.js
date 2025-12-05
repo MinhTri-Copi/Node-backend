@@ -101,6 +101,7 @@ const initWebRoutes = (app) => {
     app.get("/api/hr/question-banks", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBanks);
     app.get("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankDetail);
     app.delete("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.deleteQuestionBank);
+    app.put("/api/hr/question-banks/items/:itemId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.updateQuestionBankItem);
 
     // API Test Submission & Grading (Require JWT)
     app.post("/api/test-submissions/submit", verifyJWT.verifyJWT, testSubmissionController.submitTest);

@@ -985,10 +985,81 @@ const deleteQuestionBank = async (userId, bankId) => {
     }
 };
 
+/**
+ * Update question bank item (for HR to edit questions)
+ */
+const updateQuestionBankItem = async (userId, itemId, updateData) => {
+    try {
+        // First, verify the item belongs to a question bank owned by the user
+        const item = await db.QuestionBankItem.findByPk(itemId, {
+            include: [{
+                model: db.QuestionBank,
+                as: 'QuestionBank',
+                attributes: ['id', 'userId']
+            }]
+        });
+
+        if (!item) {
+            return {
+                EM: 'Không tìm thấy câu hỏi!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        if (!item.QuestionBank || item.QuestionBank.userId !== userId) {
+            return {
+                EM: 'Bạn không có quyền chỉnh sửa câu hỏi này!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Update the item
+        await item.update({
+            Cauhoi: updateData.Cauhoi || item.Cauhoi,
+            Dapan: updateData.Dapan !== undefined ? updateData.Dapan : item.Dapan,
+            Chude: updateData.Chude || item.Chude,
+            Loaicauhoi: updateData.Loaicauhoi || item.Loaicauhoi,
+            Diem: updateData.Diem !== undefined ? updateData.Diem : item.Diem,
+            Dodai: updateData.Dodai || item.Dodai,
+            Dokho: updateData.Dokho || item.Dokho,
+            Metadata: {
+                ...(item.Metadata || {}),
+                editedAt: new Date().toISOString(),
+                editedBy: userId
+            }
+        });
+
+        return {
+            EM: 'Cập nhật câu hỏi thành công!',
+            EC: 0,
+            DT: {
+                id: item.id,
+                Cauhoi: item.Cauhoi,
+                Dapan: item.Dapan,
+                Chude: item.Chude,
+                Loaicauhoi: item.Loaicauhoi,
+                Diem: item.Diem,
+                Dodai: item.Dodai,
+                Dokho: item.Dokho
+            }
+        };
+    } catch (error) {
+        console.error('Error in updateQuestionBankItem:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật câu hỏi!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     uploadQuestionBank,
     getQuestionBanks,
     getQuestionBankDetail,
-    deleteQuestionBank
+    deleteQuestionBank,
+    updateQuestionBankItem
 };
 
