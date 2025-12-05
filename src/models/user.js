@@ -14,11 +14,14 @@ module.exports = (sequelize, DataTypes) => {
       User.belongsTo(models.Role, {foreignKey: 'roleId'});
       User.hasMany(models.Recruiter, {foreignKey: 'userId'});
       User.hasMany(models.Record, {foreignKey: 'userId'});
+      User.hasMany(models.Meeting, {foreignKey: 'hrUserId', as: 'HRMeetings'});
+      User.hasMany(models.Meeting, {foreignKey: 'candidateUserId', as: 'CandidateMeetings'});
     }
   }
   User.init({
     Hoten: DataTypes.STRING,
     email: DataTypes.STRING,
+    SDT: DataTypes.STRING,
     matKhau: DataTypes.STRING,
     ngayTaoTaiKhoan : DataTypes.STRING,
     lanDangNhapCuoiCung : DataTypes.STRING,

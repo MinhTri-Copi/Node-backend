@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon --exec babel-node src/server.js"
+    "start": "nodemon --exec babel-node src/server.js",
+    "setup": "node create-upload-folder.js",
+    "test:llm": "babel-node test-llm-server.js"
   },
   "author": "MinhTri.dev",
   "license": "ISC",
@@ -13,15 +15,27 @@
     "@babel/core": "7.15.4",
     "@babel/node": "7.15.4",
     "@babel/preset-env": "7.15.4",
+    "@google/genai": "^1.30.0",
+    "@google/generative-ai": "^0.24.1",
+    "@whatwg-node/fetch": "^0.10.13",
     "bcryptjs": "3.0.3",
     "body-parser": "2.2.0",
     "dotenv": "17.2.3",
     "ejs": "3.1.10",
     "express": "5.1.0",
+    "form-data": "^4.0.5",
+    "jsonwebtoken": "^9.0.2",
     "kill-port": "2.0.1",
+    "mammoth": "^1.11.0",
+    "multer": "^2.0.2",
     "mysql2": "3.15.3",
+    "natural": "^8.1.0",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^7.0.11",
     "nodemon": "3.1.10",
+    "openai": "^6.9.1",
     "sequelize": "6.13.0",
-    "sequelize-cli": "6.6.3"
+    "sequelize-cli": "6.6.3",
+    "undici": "^7.16.0"
   }
 }

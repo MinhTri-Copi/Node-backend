@@ -21,7 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Major.init({
-    TenHinhThuc: DataTypes.STRING,
+    TenNghanhNghe: DataTypes.STRING,
   }, {
     sequelize,      
     modelName: 'Major',

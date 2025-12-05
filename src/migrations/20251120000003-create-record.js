@@ -21,9 +21,6 @@ module.exports = {
       Ngaytao: {
         type: Sequelize.DATEONLY
       },
-      Manguoidung: {
-        type: Sequelize.INTEGER
-      },
       userId: {
         type: Sequelize.INTEGER,
         references: {

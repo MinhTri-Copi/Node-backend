@@ -1,0 +1,532 @@
+// projet cua toi bao gom cac thong tin sau:
+
+
+Database:
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Nov 23, 2025 at 07:37 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.29
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `qltvl`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `applicationstatus`
+--
+
+CREATE TABLE `applicationstatus` (
+  `id` int(11) NOT NULL,
+  `TenTrangThai` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `company`
+--
+
+CREATE TABLE `company` (
+  `id` int(11) NOT NULL,
+  `Tencongty` varchar(255) DEFAULT NULL,
+  `Nganhnghe` varchar(255) DEFAULT NULL,
+  `Quymo` varchar(255) DEFAULT NULL,
+  `Diachi` varchar(255) DEFAULT NULL,
+  `Website` varchar(255) DEFAULT NULL,
+  `Mota` text DEFAULT NULL,
+  `Ngaythanhgia` datetime DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `format`
+--
+
+CREATE TABLE `format` (
+  `id` int(11) NOT NULL,
+  `TenHinhThuc` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `jobapplication`
+--
+
+CREATE TABLE `jobapplication` (
+  `id` int(11) NOT NULL,
+  `Thugioithieu` text DEFAULT NULL,
+  `Ngaynop` datetime DEFAULT NULL,
+  `Ngaycapnhat` datetime DEFAULT NULL,
+  `jobPostingId` int(11) NOT NULL,
+  `applicationStatusId` int(11) NOT NULL,
+  `recordId` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `jobposting`
+--
+
+CREATE TABLE `jobposting` (
+  `id` int(11) NOT NULL,
+  `Tieude` varchar(150) DEFAULT NULL,
+  `Mota` text DEFAULT NULL,
+  `Diadiem` varchar(150) DEFAULT NULL,
+  `Luongtoithieu` decimal(12,2) DEFAULT NULL,
+  `Luongtoida` decimal(12,2) DEFAULT NULL,
+  `Kinhnghiem` varchar(100) DEFAULT NULL,
+  `Trangthai` tinyint(4) DEFAULT NULL,
+  `Ngaydang` datetime DEFAULT NULL,
+  `Ngayhethan` datetime DEFAULT NULL,
+  `companyId` int(11) NOT NULL,
+  `recruiterId` int(11) NOT NULL,
+  `formatId` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `major`
+--
+
+CREATE TABLE `major` (
+  `id` int(11) NOT NULL,
+  `TenHinhThuc` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `majorjobposting`
+--
+
+CREATE TABLE `majorjobposting` (
+  `id` int(11) NOT NULL,
+  `majorId` int(11) NOT NULL,
+  `jobPostingId` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `record`
+--
+
+CREATE TABLE `record` (
+  `id` int(11) NOT NULL,
+  `Mahoso` int(11) DEFAULT NULL,
+  `Tieude` varchar(150) DEFAULT NULL,
+  `File_url` varchar(255) DEFAULT NULL,
+  `Ngaytao` date DEFAULT NULL,
+  `Manguoidung` int(11) DEFAULT NULL,
+  `userId` int(11) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `recruiter`
+--
+
+CREATE TABLE `recruiter` (
+  `id` int(11) NOT NULL,
+  `Hoten` varchar(255) DEFAULT NULL,
+  `Chucvu` varchar(255) DEFAULT NULL,
+  `SDT` varchar(255) DEFAULT NULL,
+  `userId` int(11) NOT NULL,
+  `companyId` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `role`
+--
+
+CREATE TABLE `role` (
+  `id` int(11) NOT NULL,
+  `TenVaiTro` varchar(255) DEFAULT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `sequelizemeta`
+--
+
+CREATE TABLE `sequelizemeta` (
+  `name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+--
+-- Dumping data for table `sequelizemeta`
+--
+
+INSERT INTO `sequelizemeta` (`name`) VALUES
+('20251119000001-create-role.js'),
+('20251119000002-create-user.js'),
+('20251120000001-create-company.js'),
+('20251120000002-create-recruiter.js'),
+('20251120000003-create-record.js'),
+('20251120000004-create-format.js'),
+('20251120000005-create-application-status.js'),
+('20251120000006-create-major.js'),
+('20251120000007-create-job-posting.js'),
+('20251120000008-create-job-application.js'),
+('20251120000009-create-major-job-posting.js');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user`
+--
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL,
+  `Hoten` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `matKhau` varchar(255) DEFAULT NULL,
+  `ngayTaoTaiKhoan` varchar(255) DEFAULT NULL,
+  `lanDangNhapCuoiCung` varchar(255) DEFAULT NULL,
+  `roleId` int(11) NOT NULL,
+  `createdAt` datetime NOT NULL,
+  `updatedAt` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `applicationstatus`
+--
+ALTER TABLE `applicationstatus`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `company`
+--
+ALTER TABLE `company`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `format`
+--
+ALTER TABLE `format`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `jobapplication`
+--
+ALTER TABLE `jobapplication`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `jobPostingId` (`jobPostingId`),
+  ADD KEY `applicationStatusId` (`applicationStatusId`),
+  ADD KEY `recordId` (`recordId`);
+
+--
+-- Indexes for table `jobposting`
+--
+ALTER TABLE `jobposting`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `companyId` (`companyId`),
+  ADD KEY `recruiterId` (`recruiterId`),
+  ADD KEY `formatId` (`formatId`);
+
+--
+-- Indexes for table `major`
+--
+ALTER TABLE `major`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `majorjobposting`
+--
+ALTER TABLE `majorjobposting`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `majorId` (`majorId`),
+  ADD KEY `jobPostingId` (`jobPostingId`);
+
+--
+-- Indexes for table `record`
+--
+ALTER TABLE `record`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `userId` (`userId`);
+
+--
+-- Indexes for table `recruiter`
+--
+ALTER TABLE `recruiter`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `userId` (`userId`),
+  ADD KEY `companyId` (`companyId`);
+
+--
+-- Indexes for table `role`
+--
+ALTER TABLE `role`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `sequelizemeta`
+--
+ALTER TABLE `sequelizemeta`
+  ADD PRIMARY KEY (`name`),
+  ADD UNIQUE KEY `name` (`name`);
+
+--
+-- Indexes for table `user`
+--
+ALTER TABLE `user`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `roleId` (`roleId`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `applicationstatus`
+--
+ALTER TABLE `applicationstatus`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `company`
+--
+ALTER TABLE `company`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `format`
+--
+ALTER TABLE `format`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `jobapplication`
+--
+ALTER TABLE `jobapplication`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `jobposting`
+--
+ALTER TABLE `jobposting`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `major`
+--
+ALTER TABLE `major`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `majorjobposting`
+--
+ALTER TABLE `majorjobposting`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `record`
+--
+ALTER TABLE `record`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `recruiter`
+--
+ALTER TABLE `recruiter`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `role`
+--
+ALTER TABLE `role`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user`
+--
+ALTER TABLE `user`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `jobapplication`
+--
+ALTER TABLE `jobapplication`
+  ADD CONSTRAINT `jobapplication_ibfk_1` FOREIGN KEY (`jobPostingId`) REFERENCES `jobposting` (`id`),
+  ADD CONSTRAINT `jobapplication_ibfk_2` FOREIGN KEY (`applicationStatusId`) REFERENCES `applicationstatus` (`id`),
+  ADD CONSTRAINT `jobapplication_ibfk_3` FOREIGN KEY (`recordId`) REFERENCES `record` (`id`);
+
+--
+-- Constraints for table `jobposting`
+--
+ALTER TABLE `jobposting`
+  ADD CONSTRAINT `jobposting_ibfk_1` FOREIGN KEY (`companyId`) REFERENCES `company` (`id`),
+  ADD CONSTRAINT `jobposting_ibfk_2` FOREIGN KEY (`recruiterId`) REFERENCES `recruiter` (`id`),
+  ADD CONSTRAINT `jobposting_ibfk_3` FOREIGN KEY (`formatId`) REFERENCES `format` (`id`);
+
+--
+-- Constraints for table `majorjobposting`
+--
+ALTER TABLE `majorjobposting`
+  ADD CONSTRAINT `majorjobposting_ibfk_1` FOREIGN KEY (`majorId`) REFERENCES `major` (`id`),
+  ADD CONSTRAINT `majorjobposting_ibfk_2` FOREIGN KEY (`jobPostingId`) REFERENCES `jobposting` (`id`);
+
+--
+-- Constraints for table `record`
+--
+ALTER TABLE `record`
+  ADD CONSTRAINT `record_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `user` (`id`);
+
+--
+-- Constraints for table `recruiter`
+--
+ALTER TABLE `recruiter`
+  ADD CONSTRAINT `recruiter_ibfk_1` FOREIGN KEY (`userId`) REFERENCES `user` (`id`),
+  ADD CONSTRAINT `recruiter_ibfk_2` FOREIGN KEY (`companyId`) REFERENCES `company` (`id`);
+
+--
+-- Constraints for table `user`
+--
+ALTER TABLE `user`
+  ADD CONSTRAINT `user_ibfk_1` FOREIGN KEY (`roleId`) REFERENCES `role` (`id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+
+
+Cong nghe su dung :
+Back end: Node js
+Thu vien da cai dat:
+"@babel/core": "7.15.4",
+    "@babel/node": "7.15.4",
+    "@babel/preset-env": "7.15.4",
+    "bcryptjs": "3.0.3",
+    "body-parser": "2.2.0",
+    "dotenv": "17.2.3",
+    "ejs": "3.1.10",
+    "express": "5.1.0",
+    "kill-port": "2.0.1",
+    "mysql2": "3.15.3",
+    "nodemon": "3.1.10",
+    "sequelize": "6.13.0",
+    "sequelize-cli": "6.6.3"
+
+
+
+
+Front end: React.js
+Thu vien da caai dat
+"@testing-library/jest-dom": "^5.16.1",
+    "@testing-library/react": "^11.2.7",
+    "@testing-library/user-event": "^12.8.3",
+    "bootstrap": "5.3.8",
+    "lodash": "4.17.21",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-paginate": "8.1.0",
+    "react-router-dom": "6.30.2",
+    "react-scripts": "4.0.3",
+    "react-toastify": "8.1.0",
+    "sass": "1.94.0",
+    "web-vitals": "^1.1.2"
+    
+
+
+trong do toastify khai bao nhu sau:
+<ToastContainer
+       position="top-right"
+       autoClose={5000}
+       hideProgressBar={false}
+       newestOnTop={false}
+       closeOnClick
+       rtl={false}
+       pauseOnFocusLoss
+       draggable
+       pauseOnHover
+      />
+
+trong do paginate khai bao nhu sau:
+ <ReactPaginate
+                    nextLabel="next >"
+                    onPageChange={handlePageClick}
+                    pageRangeDisplayed={3}
+                    marginPagesDisplayed={4}
+                    pageCount={totalPages}
+                    previousLabel="< previous"
+                    pageClassName="page-item"
+                    pageLinkClassName="page-link"
+                    previousClassName="page-item"
+                    previousLinkClassName="page-link"
+                    nextClassName="page-item"
+                    nextLinkClassName="page-link"
+                    breakLabel="..."
+                    breakClassName="page-item"
+                    breakLinkClassName="page-link"
+                    containerClassName="pagination"
+                    activeClassName="active"
+                    renderOnZeroPageCount={null}
+                />
+
+
+
+Quy tac:
+-Ban se ho tro toi viet front va back end
+-Ban se code theo cach cua toi
+-dat ten chu cai dau viet thuong
+-ko tao them thu muc neu chua co su cho phep cua toi
+
+Bai cua toi se viet API voi server la node va client la react(CORS qua config voi  env.react_url =http://localhost:3000  )
+
+
+Do an cuaa  toi viet web tim viec lam va viet api
