@@ -1,4 +1,5 @@
 import db from '../models/index';
+import { Op } from 'sequelize';
 import fs from 'fs';
 import path from 'path';
 import { OpenAI } from 'openai';
@@ -929,6 +930,118 @@ const getQuestionBankDetail = async (userId, bankId) => {
 };
 
 /**
+ * Get question bank items with filters (for selecting questions to add to test)
+ */
+const getQuestionBankItems = async (userId, filters = {}) => {
+    try {
+        const {
+            bankId,
+            chude,
+            loaicauhoi,
+            dodai,
+            dokho,
+            search,
+            limit = 100,
+            offset = 0
+        } = filters;
+
+        // Build where clause for QuestionBank
+        const bankWhere = { userId };
+        if (bankId) {
+            bankWhere.id = bankId;
+        }
+
+        // Build where clause for QuestionBankItem
+        const itemWhere = {};
+        if (chude) {
+            itemWhere.Chude = chude;
+        }
+        if (loaicauhoi) {
+            itemWhere.Loaicauhoi = loaicauhoi;
+        }
+        if (dodai) {
+            itemWhere.Dodai = dodai;
+        }
+        if (dokho) {
+            itemWhere.Dokho = dokho;
+        }
+        if (search) {
+            itemWhere[Op.or] = [
+                { Cauhoi: { [Op.like]: `%${search}%` } },
+                { Dapan: { [Op.like]: `%${search}%` } },
+                { Chude: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        // Get question bank items
+        const items = await db.QuestionBankItem.findAll({
+            where: itemWhere,
+            include: [{
+                model: db.QuestionBank,
+                as: 'QuestionBank',
+                where: bankWhere,
+                attributes: ['id', 'Ten', 'FileName']
+            }],
+            attributes: ['id', 'Cauhoi', 'Dapan', 'Chude', 'Loaicauhoi', 'Diem', 'Dodai', 'Dokho'],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [['id', 'ASC']]
+        });
+
+        // Get total count for pagination
+        const totalCount = await db.QuestionBankItem.count({
+            where: itemWhere,
+            include: [{
+                model: db.QuestionBank,
+                as: 'QuestionBank',
+                where: bankWhere,
+                attributes: []
+            }]
+        });
+
+        // Get unique topics for filter options
+        const allItems = await db.QuestionBankItem.findAll({
+            where: {},
+            include: [{
+                model: db.QuestionBank,
+                as: 'QuestionBank',
+                where: { userId },
+                attributes: []
+            }],
+            attributes: ['Chude', 'Loaicauhoi', 'Dodai', 'Dokho'],
+            raw: true
+        });
+
+        const topics = [...new Set(allItems.map(i => i.Chude).filter(Boolean))].sort();
+        const questionTypes = [...new Set(allItems.map(i => i.Loaicauhoi).filter(Boolean))].sort();
+        const lengths = [...new Set(allItems.map(i => i.Dodai).filter(Boolean))].sort();
+        const difficulties = [...new Set(allItems.map(i => i.Dokho).filter(Boolean))].sort();
+
+        return {
+            EM: 'Lấy danh sách câu hỏi thành công!',
+            EC: 0,
+            DT: {
+                items: items,
+                totalCount: totalCount,
+                filters: {
+                    topics,
+                    questionTypes,
+                    lengths,
+                    difficulties
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Error in getQuestionBankItems:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách câu hỏi!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
  * Delete question bank
  */
 const deleteQuestionBank = async (userId, bankId) => {
@@ -1060,6 +1173,7 @@ export default {
     getQuestionBanks,
     getQuestionBankDetail,
     deleteQuestionBank,
-    updateQuestionBankItem
+    updateQuestionBankItem,
+    getQuestionBankItems
 };
 

@@ -142,6 +142,51 @@ const deleteQuestionBank = async (req, res) => {
 };
 
 /**
+ * Get question bank items with filters (for selecting questions)
+ */
+const getQuestionBankItems = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const filters = {
+            bankId: req.query.bankId ? parseInt(req.query.bankId) : null,
+            chude: req.query.chude || null,
+            loaicauhoi: req.query.loaicauhoi || null,
+            dodai: req.query.dodai || null,
+            dokho: req.query.dokho || null,
+            search: req.query.search || null,
+            limit: req.query.limit || 100,
+            offset: req.query.offset || 0
+        };
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await questionBankService.getQuestionBankItems(
+            parseInt(userId),
+            filters
+        );
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getQuestionBankItems controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
+/**
  * Update question bank item
  */
 const updateQuestionBankItem = async (req, res) => {
@@ -184,6 +229,7 @@ export default {
     getQuestionBanks,
     getQuestionBankDetail,
     deleteQuestionBank,
-    updateQuestionBankItem
+    updateQuestionBankItem,
+    getQuestionBankItems
 };
 

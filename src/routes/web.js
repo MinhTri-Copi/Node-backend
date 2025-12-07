@@ -100,6 +100,7 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/question-banks/upload", verifyJWT.verifyJWT, verifyJWT.requireRole(2), uploadQuestionBank.single('file'), questionBankController.uploadQuestionBank);
     app.get("/api/hr/question-banks", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBanks);
     app.get("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankDetail);
+    app.get("/api/hr/question-banks/items/search", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankItems);
     app.delete("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.deleteQuestionBank);
     app.put("/api/hr/question-banks/items/:itemId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.updateQuestionBankItem);
 
