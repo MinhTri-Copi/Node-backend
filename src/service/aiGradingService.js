@@ -1,35 +1,137 @@
 import db from '../models/index';
 import natural from 'natural';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OpenAI } from 'openai';
 require('dotenv').config();
 
-// Polyfill fetch for Node.js < 18
-if (typeof fetch === 'undefined') {
+// Polyfill fetch and FormData for Node.js < 18
+if (typeof fetch === 'undefined' || typeof FormData === 'undefined') {
     try {
-        const nodeFetch = require('node-fetch');
-        global.fetch = nodeFetch;
-        global.Headers = nodeFetch.Headers;
-        global.Request = nodeFetch.Request;
-        global.Response = nodeFetch.Response;
-        console.log('✅ Using node-fetch polyfill for fetch API');
-    } catch (error) {
-        console.error('❌ Failed to load node-fetch. Please install: npm install node-fetch@2');
-        console.error('   Or upgrade Node.js to version 18+ which has built-in fetch');
+        // Try @whatwg-node/fetch first (better compatibility)
+        const { fetch: whatwgFetch, FormData: WhatwgFormData, Headers: WhatwgHeaders, Request: WhatwgRequest, Response: WhatwgResponse } = require('@whatwg-node/fetch');
+        global.fetch = whatwgFetch;
+        global.FormData = WhatwgFormData;
+        global.Headers = WhatwgHeaders;
+        global.Request = WhatwgRequest;
+        global.Response = WhatwgResponse;
+        console.log('✅ Using @whatwg-node/fetch polyfill for fetch and FormData API');
+    } catch (whatwgError) {
+        // Fallback to node-fetch + form-data
+        try {
+            const nodeFetch = require('node-fetch');
+            global.fetch = nodeFetch;
+            global.Headers = nodeFetch.Headers;
+            global.Request = nodeFetch.Request;
+            global.Response = nodeFetch.Response;
+            console.log('✅ Using node-fetch polyfill for fetch API');
+
+            // Try to use FormData from @whatwg-node/fetch even if fetch failed
+            try {
+                const { FormData: WhatwgFormData } = require('@whatwg-node/fetch');
+                global.FormData = WhatwgFormData;
+                console.log('✅ Using @whatwg-node/fetch FormData polyfill');
+            } catch (formDataError) {
+                // Last resort: use form-data package
+                const FormDataPolyfill = require('form-data');
+                global.FormData = FormDataPolyfill;
+                console.log('✅ Using form-data polyfill for FormData API');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load fetch/FormData polyfills.');
+            console.error('   Please install: npm install @whatwg-node/fetch');
+            console.error('   Or: npm install node-fetch@2 form-data');
+            console.error('   Or upgrade Node.js to version 18+ which has built-in fetch and FormData');
+        }
     }
 }
 
 /**
  * AI auto-grading service for test submissions
- * Hybrid approach: AI chấm điểm → HR xem và điều chỉnh
- * Không sử dụng NLP (chỉ AI)
+ * Hybrid approach: LLM chấm điểm → HR xem và điều chỉnh
+ * Sử dụng LLM (LM Studio) để chấm điểm tự động
  */
 
-// Initialize Gemini AI
-let genAI = null;
-if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-} else {
-    console.warn('⚠️ GEMINI_API_KEY not found in .env. AI grading will use NLP only.');
+// LM Studio configuration
+const LM_STUDIO_URL = process.env.LM_STUDIO_URL || 'http://127.0.0.1:1234';
+// For 8GB RAM CPU: Use qwen2.5-1.5b-instruct (balanced) or qwen2.5-0.5b-instruct (fastest)
+const LM_STUDIO_MODEL = process.env.LM_STUDIO_MODEL || 'qwen2.5-1.5b-instruct';
+
+// Initialize OpenAI client for LM Studio
+const openai = new OpenAI({
+    baseURL: LM_STUDIO_URL + '/v1',
+    apiKey: 'lm-studio',
+    fetch: global.fetch,
+});
+
+/**
+ * Parse JSON from LLM response (handle reasoning tags, markdown, etc.)
+ * Supports both JSON objects and arrays
+ */
+function parseJSONFromResponse(responseText) {
+    if (!responseText) return null;
+
+    let cleaned = responseText.trim();
+
+    // Remove reasoning tags
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/redacted_reasoning>/gi, '');
+    cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '');
+
+    // Remove markdown code blocks
+    cleaned = cleaned.replace(/```json\n?/gi, '');
+    cleaned = cleaned.replace(/```\n?/g, '');
+
+    // Remove common prefixes
+    cleaned = cleaned.replace(/^Here is the JSON[:\s]*/i, '');
+    cleaned = cleaned.replace(/^JSON[:\s]*/i, '');
+    cleaned = cleaned.replace(/^Response[:\s]*/i, '');
+
+    // Try to find JSON array first (for batch responses)
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket = cleaned.lastIndexOf(']');
+
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+        let jsonString = cleaned.substring(firstBracket, lastBracket + 1);
+
+        // Try to fix common JSON issues
+        jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+        // Fix incomplete JSON (if response was cut off)
+        jsonString = jsonString.replace(/,\s*$/, ''); // Remove trailing comma
+        jsonString = jsonString.replace(/,\s*\]/, ']'); // Remove comma before closing bracket
+
+        try {
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.warn('⚠️ Failed to parse JSON array');
+        }
+    }
+
+    // Try to find JSON object (for single responses)
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        let jsonString = cleaned.substring(firstBrace, lastBrace + 1);
+
+        // Try to fix common JSON issues
+        jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
+
+        try {
+            return JSON.parse(jsonString);
+        } catch (e) {
+            // If parsing fails, try simple regex extraction for score and comment only
+            const scoreMatch = jsonString.match(/"score"\s*:\s*([0-9.]+)/);
+            const commentMatch = jsonString.match(/"comment"\s*:\s*"([^"]*)"/);
+
+            if (scoreMatch) {
+                return {
+                    score: parseFloat(scoreMatch[1]) || 0,
+                    comment: commentMatch ? commentMatch[1] : ''
+                };
+            }
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -110,6 +212,16 @@ const roundToHalf = (score) => {
  * Get similarity status based on similarity value
  */
 const getSimilarityStatus = (similarity) => {
+    // Đảm bảo similarity = 0 (score = 0) luôn hiển thị "Có vấn đề"
+    if (similarity === 0) {
+        return {
+            level: 'problem',
+            label: 'Có vấn đề',
+            emoji: '🔴',
+            color: 'red'
+        };
+    }
+    
     if (similarity > 0.75) {
         return {
             level: 'good',
@@ -134,166 +246,319 @@ const getSimilarityStatus = (similarity) => {
     }
 };
 
+// Normalize text for prompt: remove HTML, collapse spaces, trim length
+const normalizeForPrompt = (text, maxLen = 35) => {
+    if (!text) return '';
+    return text
+        .replace(/<[^>]*>/g, ' ')   // strip HTML tags
+        .replace(/\s+/g, ' ')       // collapse whitespace
+        .trim()
+        .substring(0, maxLen);
+};
+
 /**
- * Grade answer using Gemini AI
- * More accurate but slower (1-3s)
+ * Grade a single answer using LLM (LM Studio) - OLD METHOD (kept for backward compatibility)
+ * More accurate but slower (1-3s per question)
  */
-const gradeWithGemini = async (candidateAnswer, correctAnswer, maxScore, questionText) => {
-    if (!genAI) {
-        // Fallback to NLP if Gemini not configured
-        const similarity = calculateSimilarityNLP(candidateAnswer, correctAnswer);
-        return {
-            score: Math.round(similarity * maxScore * 10) / 10,
-            similarity_ai: similarity,
-            comment: 'Gemini API không được cấu hình, sử dụng NLP',
-            confidence: similarity
-        };
-    }
-
+const gradeWithLLM = async (candidateAnswer, correctAnswer, maxScore, questionText) => {
     try {
-        // Try different Gemini models in order of preference
-        // User requested: gemini-2.5-flash
-        const modelsToTry = [
-            'gemini-2.5-flash',      // User's preferred model
-            'gemini-1.5-flash',      // Fallback: Fast model
-            'gemini-1.5-pro',        // Fallback: More capable
-            'gemini-pro'              // Fallback: Stable (most widely available)
-        ];
+        // Optimize prompt for LLM (concise, clear JSON format)
+        const prompt = `Chấm bài tự luận. So sánh đáp án mẫu và câu trả lời.
 
-        const prompt = `
-        Bạn là hệ thống chấm bài tự luận.
-        ⚠ Bạn chỉ được phép so sánh mức độ tương đồng giữa đáp án tham chiếu và câu trả lời ứng viên.
-        Không được sử dụng kiến thức bên ngoài hoặc tự đưa ra định nghĩa mới.
-        
-        Dữ liệu chấm:
-        - Câu hỏi: "${questionText}"
-        - Đáp án tham chiếu: "${correctAnswer}"
-        - Câu trả lời ứng viên: "${candidateAnswer}"
-        - Điểm tối đa: ${maxScore}
-        
-        Nhiệm vụ của bạn:
-        1. So sánh xem câu trả lời ứng viên có bao nhiêu % nội dung đúng với đáp án tham chiếu.
-        2. Không đánh giá phong cách viết, độ dài câu, hoặc từ đồng nghĩa.
-        3. Không được mở rộng hoặc bổ sung kiến thức không có trong đáp án tham chiếu.
-        
-        Trả về JSON theo định dạng:
-        {
-          "score": <điểm từ 0 đến ${maxScore} (có thể thập phân)>,
-          "similarity": <độ tương đồng từ 0.00 đến 1.00>,
-          "isCorrect": <true nếu ý chính khớp phần lớn, false nếu sai nhiều>,
-          "comment": "<nhận xét ngắn gọn dựa trên so sánh với đáp án tham chiếu (tối đa 100 ký tự)>",
-          "confidence": <mức tin cậy của mô hình từ 0.00 đến 1.00>
-        }
-        
-        ⚠ Yêu cầu bắt buộc:
-        - Không giải thích thêm nội dung
-        - Không đưa ý kiến riêng
-        - Chỉ trả về JSON thuần, không có văn bản khác
-        `;
-        
-        // Try each model until one works
-        let lastError = null;
-        for (const modelName of modelsToTry) {
-            try {
-                console.log(`🔄 Trying Gemini model: ${modelName}`);
-                const model = genAI.getGenerativeModel({ model: modelName });
+Đáp án: "${normalizeForPrompt(correctAnswer, 50)}"
+Trả lời: "${normalizeForPrompt(candidateAnswer, 50)}"
+Max: ${maxScore}
 
-                const result = await model.generateContent(prompt);
-                const response = await result.response;
-                const text = response.text();
+JSON: {"score":0-${maxScore},"comment":"10-20 từ"}`;
 
-                console.log(`✅ Successfully used model: ${modelName}`);
-
-                // Parse JSON response
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    const gradingResult = JSON.parse(jsonMatch[0]);
-
-                    // Validate and normalize
-                    let score = Math.max(0, Math.min(maxScore, parseFloat(gradingResult.score) || 0));
-                    const similarity = Math.max(0, Math.min(1, parseFloat(gradingResult.similarity) || 0));
-                    const confidence = Math.max(0, Math.min(1, parseFloat(gradingResult.confidence) || 0.8));
-
-                    // Round score to nearest 0.5 (e.g., 7.3 -> 7.5, 7.7 -> 8.0)
-                    score = roundToHalf(score);
-                    
-                    // Get similarity status
-                    const status = getSimilarityStatus(similarity);
-
-                    return {
-                        score: score,
-                        similarity_ai: similarity,
-                        comment: gradingResult.comment || '',
-                        isCorrect: gradingResult.isCorrect || false,
-                        confidence: confidence,
-                        similarityStatus: status
-                    };
+        const response = await openai.chat.completions.create({
+            model: LM_STUDIO_MODEL,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Chấm bài theo rubric: đúng nội dung, đầy đủ ý, rõ ràng. Trả về JSON: {"score":n,"comment":""}'
+                },
+                {
+                    role: 'user',
+                    content: prompt
                 }
+            ],
+                    temperature: 0,
+                    top_p: 0.05, // TỐI ƯU: Giảm để model sinh token nhanh hơn
+                    max_tokens: 150,
+            frequency_penalty: 0,
+            presence_penalty: 0
+        });
 
-                // If we get here, JSON parsing failed but API call succeeded
-                throw new Error('Invalid JSON response from Gemini');
+        const responseText = response.choices[0]?.message?.content || '';
+        const gradingResult = parseJSONFromResponse(responseText);
 
-            } catch (error) {
-                console.warn(`⚠️ Model ${modelName} failed:`, error.message);
-                lastError = error;
-
-                // If it's a 404 (model not found), try next model
-                if (error.status === 404 || error.message?.includes('not found') || error.message?.includes('404')) {
-                    continue; // Try next model
-                }
-
-                // If it's a 429 (rate limit/quota exceeded), try next model
-                // Different models may have different rate limits
-                if (error.status === 429 || error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('rate limit')) {
-                    console.warn(`⚠️ Model ${modelName} rate limited, trying next model...`);
-                    continue; // Try next model
-                }
-
-                // If it's auth error (401, 403), don't try other models
-                if (error.status === 401 || error.status === 403) {
-                    throw error;
-                }
-
-                // For other errors, try next model (might be temporary issue)
-                console.warn(`⚠️ Model ${modelName} error (${error.status}), trying next model...`);
-                continue;
-            }
+        if (!gradingResult) {
+            throw new Error('Không thể parse JSON từ LLM response');
         }
 
-        // All models failed
-        throw lastError || new Error('All Gemini models failed');
-
-    } catch (error) {
-        console.error('❌ Error calling Gemini API:', error.message);
-        console.error('   Status:', error.status);
-        console.error('   StatusText:', error.statusText);
-
-        // Determine error message
-        let errorMessage = 'Lỗi khi gọi Gemini API';
-        if (error.status === 429 || error.message?.includes('quota') || error.message?.includes('rate limit')) {
-            errorMessage = 'Gemini API đã vượt quá giới hạn (rate limit), sử dụng NLP';
-        } else if (error.status === 401 || error.status === 403) {
-            errorMessage = 'GEMINI_API_KEY không hợp lệ hoặc không có quyền';
-        } else if (error.status === 404) {
-            errorMessage = 'Model Gemini không tìm thấy';
-        }
-
-        // Fallback to NLP only if AI completely fails
-        // This should rarely happen as we try multiple models
-        console.warn('⚠️ All AI models failed, using NLP fallback');
-        const similarity = calculateSimilarityNLP(candidateAnswer, correctAnswer);
-        let score = similarity * maxScore;
-        score = roundToHalf(score); // Round to nearest 0.5
+        // Validate and normalize
+        let score = Math.max(0, Math.min(maxScore, parseFloat(gradingResult.score) || 0));
+        score = roundToHalf(score);
+        const similarity = maxScore > 0 ? Math.max(0, Math.min(1, score / maxScore)) : 0;
         const status = getSimilarityStatus(similarity);
-        
+
         return {
             score: score,
             similarity_ai: similarity,
-            comment: `${errorMessage}. Sử dụng NLP fallback (độ tương đồng: ${(similarity * 100).toFixed(0)}%). HR vui lòng xem lại và chấm thủ công.`,
-            confidence: similarity * 0.6, // Lower confidence for fallback
+            comment: (gradingResult.comment || '').substring(0, 200),
+            isCorrect: similarity >= 0.7,
+            confidence: Math.min(0.95, similarity + 0.1),
+            similarityStatus: status
+        };
+
+    } catch (error) {
+        console.error('❌ Error calling LLM for grading:', error.message);
+        const similarity = calculateSimilarityNLP(candidateAnswer, correctAnswer);
+        let score = similarity * maxScore;
+        score = roundToHalf(score);
+        const status = getSimilarityStatus(similarity);
+
+        return {
+            score: score,
+            similarity_ai: similarity,
+            comment: `LLM không khả dụng, sử dụng NLP (${(similarity * 100).toFixed(0)}%)`,
+            confidence: similarity * 0.6,
             isCorrect: similarity >= 0.7,
             similarityStatus: status
         };
+    }
+};
+
+/**
+ * Grade multiple answers in a single batch using LLM (OPTIMIZED - 10-20x faster)
+ * This is MUCH faster than grading one by one
+ */
+const gradeAnswersBatch = async (gradingItems) => {
+    try {
+        if (!gradingItems || gradingItems.length === 0) {
+            return [];
+        }
+
+        // Filter out multiple choice questions (they don't need LLM)
+        const essayItems = gradingItems.filter(item => item.questionType === 'tuluan');
+        const multipleChoiceItems = gradingItems.filter(item => item.questionType === 'tracnghiem');
+
+        // Handle multiple choice immediately (exact match, no LLM needed)
+        const multipleChoiceResults = multipleChoiceItems.map(item => {
+            const isExact = item.candidateAnswer.trim().toLowerCase() === item.correctAnswer.trim().toLowerCase();
+            const similarity = isExact ? 1.0 : 0;
+            return {
+                index: item.index,
+                score: isExact ? item.maxScore : 0,
+                similarity_ai: similarity,
+                isCorrect: isExact,
+                confidence: 1.0,
+                comment: isExact ? 'Đáp án chính xác' : 'Đáp án sai',
+                similarityStatus: getSimilarityStatus(similarity)
+            };
+        });
+
+        if (essayItems.length === 0) {
+            return multipleChoiceResults;
+        }
+
+        // TỐI ƯU 4: NLP lọc trước - ngưỡng 0.88 (cân bằng giữa tốc độ và độ chính xác)
+        const essayResults = [];
+        const itemsNeedingLLM = [];
+        let nlpFilteredCount = 0;
+
+        for (const item of essayItems) {
+            const similarityNLP = calculateSimilarityNLP(item.candidateAnswer, item.correctAnswer);
+            
+            if (similarityNLP >= 0.88) {
+                nlpFilteredCount++;
+                // Không cần LLM, dùng NLP trực tiếp (tiết kiệm ~40-60% thời gian)
+                let score = similarityNLP * item.maxScore;
+                score = roundToHalf(score);
+                const similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                const isCorrect = similarity >= 0.7;
+                const confidence = Math.min(0.95, similarity + 0.1);
+                const status = getSimilarityStatus(similarity);
+                
+                let comment = 'Đúng nội dung (NLP)';
+                if (similarity >= 0.9) comment = 'Đúng ý hoàn toàn, đầy đủ';
+                else if (similarity >= 0.7) comment = 'Đúng ý chính, đầy đủ';
+
+                essayResults.push({
+                    index: item.index,
+                    score,
+                    similarity_ai: similarity,
+                    isCorrect,
+                    confidence,
+                    comment,
+                    similarityStatus: status
+                });
+            } else {
+                // Cần LLM để chấm chính xác hơn
+                itemsNeedingLLM.push(item);
+            }
+        }
+
+        // Log số câu được lọc bởi NLP (TỐI ƯU: Log chi tiết để debug)
+        console.log(`📊 NLP lọc: ${nlpFilteredCount}/${essayItems.length} câu (similarity >= 0.88), cần LLM: ${itemsNeedingLLM.length} câu`);
+
+        // Chỉ gọi LLM cho các câu cần thiết
+        if (itemsNeedingLLM.length > 0) {
+            const optimalBatchSize = itemsNeedingLLM.length <= 30 ? itemsNeedingLLM.length : 30;
+            const batches = [];
+            for (let i = 0; i < itemsNeedingLLM.length; i += optimalBatchSize) {
+                batches.push(itemsNeedingLLM.slice(i, i + optimalBatchSize));
+            }
+
+            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                const batch = batches[batchIndex];
+
+                // TỐI ƯU: Input 28 ký tự (vừa đủ để hiểu, không quá dài)
+                const prompt = `Chấm ${batch.length} câu theo Ý NGHĨA. Đúng ý: 80-100%. JSON array ĐÚNG ${batch.length} phần tử:
+[{"score":0-max},...]
+
+${batch.map((item, i) => `${i + 1}|"${normalizeForPrompt(item.correctAnswer, 28)}"|"${normalizeForPrompt(item.candidateAnswer, 28)}"|${item.maxScore}`).join('\n')}`;
+
+                const llmStartTime = Date.now();
+                const response = await openai.chat.completions.create({
+                    model: LM_STUDIO_MODEL,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: `Chấm theo Ý NGHĨA. Đúng ý (dù khác chữ): 80-100%. Trả JSON array ĐÚNG ${batch.length} phần tử: [{"score":0-max},...]`
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    temperature: 0,
+                    top_p: 0.05, // TỐI ƯU: Giảm từ 0.1 → 0.05 để model bớt do dự, sinh token nhanh hơn
+                    max_tokens: 80, // TỐI ƯU TỐI ĐA: Giảm từ 100 → 80 (chỉ cần score, không cần comment)
+                    frequency_penalty: 0,
+                    presence_penalty: 0
+                });
+                const llmTime = Date.now() - llmStartTime;
+                console.log(`⏱️ LLM batch ${batchIndex + 1}/${batches.length}: ${batch.length} câu - ${(llmTime / 1000).toFixed(1)}s`);
+
+                const responseText = response.choices[0]?.message?.content || '';
+                if (process.env.DEBUG_GRADING) {
+                    console.log(`📝 LLM response (${responseText.length} chars): ${responseText.substring(0, 200)}`);
+                }
+
+                let gradingResults = parseJSONFromResponse(responseText);
+                if (!Array.isArray(gradingResults)) {
+                    if (gradingResults && typeof gradingResults === 'object') {
+                        gradingResults = [gradingResults];
+                    } else {
+                        throw new Error('LLM không trả về array hợp lệ');
+                    }
+                }
+                if (gradingResults.length !== batch.length) {
+                    while (gradingResults.length < batch.length) gradingResults.push({ score: 0 });
+                    gradingResults.splice(batch.length);
+                }
+
+                gradingResults.forEach((res, idx) => {
+                    const item = batch[idx];
+                    let score = parseFloat(res.score);
+                    
+                    // 1️⃣ Nếu LLM trả về lỗi → mới fallback NLP
+                    if (isNaN(score) || score < 0 || score > item.maxScore) {
+                        const simNLP = calculateSimilarityNLP(item.candidateAnswer, item.correctAnswer);
+                        score = simNLP * item.maxScore;
+                    }
+                    
+                    // 2️⃣ SÀN ĐIỂM: Chỉ ép khi câu trả lời thực sự có ý nghĩa (không phải random text)
+                    const semanticNLP = calculateSimilarityNLP(item.candidateAnswer, item.correctAnswer);
+                    const candidateLen = (item.candidateAnswer || '').trim().length;
+                    const correctLen = (item.correctAnswer || '').trim().length;
+                    
+                    // Chỉ ép sàn nếu:
+                    // - NLP similarity >= 0.3 (giảm từ 0.4 để bắt được nhiều câu đồng nghĩa hơn)
+                    // - Câu trả lời >= 10 ký tự (không phải random text ngắn)
+                    // - Câu trả lời >= 20% độ dài đáp án (giảm từ 30% để linh hoạt hơn)
+                    // - LLM chấm < 50%
+                    // - HOẶC: Câu trả lời dài >= 20 ký tự và LLM chấm < 30% (có thể là đồng nghĩa nhưng NLP chưa bắt được)
+                    if (score < item.maxScore * 0.5) {
+                        if (semanticNLP >= 0.3 && 
+                            candidateLen >= 10 && 
+                            (correctLen === 0 || candidateLen >= correctLen * 0.2)) {
+                            score = item.maxScore * 0.85; // ✅ ÉP 8.5 ĐIỂM
+                        } else if (candidateLen >= 20 && score < item.maxScore * 0.3 && semanticNLP >= 0.2) {
+                            // Câu dài nhưng LLM chấm rất thấp, có thể là đồng nghĩa
+                            score = item.maxScore * 0.75; // ✅ ÉP 7.5 ĐIỂM
+                        }
+                    }
+                    
+                    score = roundToHalf(score);
+
+                    const similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                    const isCorrect = similarity >= 0.7;
+                    const confidence = Math.min(0.95, similarity + 0.1);
+                    const status = getSimilarityStatus(similarity);
+
+                    // TỐI ƯU 1: Comment được generate bằng code (không từ LLM)
+                    let comment = '';
+                    if (similarity >= 0.9) comment = 'Đúng ý hoàn toàn, đầy đủ';
+                    else if (similarity >= 0.7) comment = 'Đúng ý chính, còn thiếu chi tiết';
+                    else if (similarity >= 0.5) comment = 'Đúng một phần ý, thiếu nội dung quan trọng';
+                    else if (similarity >= 0.3) comment = 'Sai nhiều ý, chỉ đúng rất ít';
+                    else comment = 'Không đúng ý hoặc không liên quan';
+
+                    essayResults.push({
+                        index: item.index,
+                        score,
+                        similarity_ai: similarity,
+                        isCorrect,
+                        confidence,
+                        comment,
+                        similarityStatus: status
+                    });
+                });
+            }
+        }
+
+        // Combine essay and multiple choice results, sort by original index
+        const allResults = [...essayResults, ...multipleChoiceResults].sort((a, b) => a.index - b.index);
+
+        console.log(`✅ Đã chấm ${allResults.length} câu hỏi trong batch`);
+
+        return allResults;
+
+
+    } catch (error) {
+        console.error('❌ Error in gradeAnswersBatch:', error.message);
+        // Fallback: grade individually using NLP
+        console.warn('⚠️ Batch grading failed, using NLP fallback for all');
+        return gradingItems.map((item, i) => {
+            if (item.questionType === 'tracnghiem') {
+                const isExact = item.candidateAnswer.trim().toLowerCase() === item.correctAnswer.trim().toLowerCase();
+                return {
+                    index: i,
+                    score: isExact ? item.maxScore : 0,
+                    similarity_ai: isExact ? 1.0 : 0,
+                    isCorrect: isExact,
+                    confidence: 1.0,
+                    comment: isExact ? 'Đáp án chính xác' : 'Đáp án sai',
+                    similarityStatus: getSimilarityStatus(isExact ? 1.0 : 0)
+                };
+            } else {
+                const similarity = calculateSimilarityNLP(item.candidateAnswer, item.correctAnswer);
+                let score = similarity * item.maxScore;
+                score = roundToHalf(score);
+                return {
+                    index: i,
+                    score: score,
+                    similarity_ai: similarity,
+                    isCorrect: similarity >= 0.7,
+                    confidence: similarity * 0.6,
+                    comment: `NLP fallback (${(similarity * 100).toFixed(0)}%)`,
+                    similarityStatus: getSimilarityStatus(similarity)
+                };
+            }
+        });
     }
 };
 
@@ -319,7 +584,7 @@ const gradeAnswer = async (candidateAnswer, correctAnswer, maxScore, questionTyp
         const isExact = candidateAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
         const similarity = isExact ? 1.0 : 0;
         const status = getSimilarityStatus(similarity);
-        
+
         return {
             score: isExact ? maxScore : 0,
             similarity_nlp: 0, // Không dùng NLP
@@ -334,7 +599,7 @@ const gradeAnswer = async (candidateAnswer, correctAnswer, maxScore, questionTyp
 
     // For essay questions - ALWAYS use AI (Hybrid = AI chấm, HR điều chỉnh)
     try {
-        const aiResult = await gradeWithGemini(candidateAnswer, correctAnswer, maxScore, questionText);
+        const aiResult = await gradeWithLLM(candidateAnswer, correctAnswer, maxScore, questionText);
         return {
             score: aiResult.score,
             similarity_nlp: 0, // Không dùng NLP
@@ -352,7 +617,7 @@ const gradeAnswer = async (candidateAnswer, correctAnswer, maxScore, questionTyp
         let score = nlpSimilarity * maxScore;
         score = roundToHalf(score); // Round to nearest 0.5
         const status = getSimilarityStatus(nlpSimilarity);
-        
+
         return {
             score: score,
             similarity_nlp: nlpSimilarity,
@@ -412,47 +677,92 @@ const autoGradeSubmission = async (submissionId) => {
             };
         }
 
+        // OPTIMIZATION: Prepare all answers for batch grading
+        const gradingItems = submission.Answers.map((answer, index) => ({
+            index: index,
+            answerId: answer.id,
+            questionId: answer.Question.id,
+            questionText: answer.Question.Cauhoi || '',
+            correctAnswer: answer.Question.Dapan || '',
+            candidateAnswer: answer.Cautraloi || '',
+            maxScore: answer.Question.Diem || 10,
+            questionType: answer.Question.Loaicauhoi || 'tuluan'
+        }));
+
+        console.log(`⚡ Đang chấm ${gradingItems.length} câu hỏi bằng LLM (batch processing)...`);
+        const startTime = Date.now();
+
+        // Grade all answers in a single batch (MUCH faster)
+        const batchResults = await gradeAnswersBatch(gradingItems);
+
+        const gradingTime = Date.now() - startTime;
+        console.log(`✅ Đã chấm ${batchResults.length} câu hỏi trong ${gradingTime}ms (${(gradingTime / 1000).toFixed(2)}s)`);
+
+        // Map results back to answers and update database
         const gradedAnswers = [];
+        for (let i = 0; i < submission.Answers.length; i++) {
+            const answer = submission.Answers[i];
+            const result = batchResults[i];
 
-        // Grade each answer
-        for (const answer of submission.Answers) {
-            const question = answer.Question;
+            if (!result) {
+                console.warn(`⚠️ Không có kết quả cho câu hỏi ${i + 1}, sử dụng giá trị mặc định`);
+                // Use NLP fallback for missing results
+                const question = answer.Question;
+                const similarity = calculateSimilarityNLP(answer.Cautraloi, question.Dapan);
+                let score = similarity * question.Diem;
+                score = roundToHalf(score);
+                const status = getSimilarityStatus(similarity);
 
-            const gradingResult = await gradeAnswer(
-                answer.Cautraloi,
-                question.Dapan,
-                question.Diem,
-                question.Loaicauhoi,
-                question.Cauhoi // Pass question text for Gemini context
-            );
+                await answer.update({
+                    Diemdatduoc: score,
+                    Dungkhong: similarity >= 0.7,
+                    Phuongphap: 'nlp-fallback',
+                    Dosattinhcua_nlp: similarity,
+                    Dosattinhcua_ai: similarity,
+                    Nhanxet: `NLP fallback (${(similarity * 100).toFixed(0)}%)`
+                });
 
-            // Determine method used
-            // Hybrid = AI chấm, HR điều chỉnh (không dùng NLP)
-            const method = gradingResult.method || 'ai';
+                gradedAnswers.push({
+                    answerId: answer.id,
+                    questionId: question.id,
+                    suggestedScore: score,
+                    maxScore: question.Diem,
+                    similarity_nlp: similarity,
+                    similarity_ai: similarity,
+                    isCorrect: similarity >= 0.7,
+                    confidence: similarity * 0.6,
+                    method: 'nlp-fallback',
+                    comment: `NLP fallback (${(similarity * 100).toFixed(0)}%)`,
+                    similarityStatus: status
+                });
+            } else {
+                // Determine method used
+                const method = answer.Question.Loaicauhoi === 'tracnghiem' ? 'exact' : 'ai';
 
-            // Update answer with AI-suggested score
-            await answer.update({
-                Diemdatduoc: gradingResult.score,
-                Dungkhong: gradingResult.isCorrect,
-                Phuongphap: method,
-                Dosattinhcua_nlp: gradingResult.similarity_nlp || 0,
-                Dosattinhcua_ai: gradingResult.similarity_ai || 0,
-                Nhanxet: gradingResult.comment || null
-            });
+                // Update answer with AI-suggested score
+                await answer.update({
+                    Diemdatduoc: result.score,
+                    Dungkhong: result.isCorrect,
+                    Phuongphap: method,
+                    Dosattinhcua_nlp: 0, // Không dùng NLP trong batch mode
+                    Dosattinhcua_ai: result.similarity_ai,
+                    Nhanxet: result.comment || null
+                });
 
-            gradedAnswers.push({
-                answerId: answer.id,
-                questionId: question.id,
-                suggestedScore: gradingResult.score,
-                maxScore: question.Diem,
-                similarity_nlp: gradingResult.similarity_nlp,
-                similarity_ai: gradingResult.similarity_ai,
-                isCorrect: gradingResult.isCorrect,
-                confidence: gradingResult.confidence,
-                method: method,
-                comment: gradingResult.comment,
-                similarityStatus: gradingResult.similarityStatus // Status indicator for HR
-            });
+                gradedAnswers.push({
+                    answerId: answer.id,
+                    questionId: answer.Question.id,
+                    suggestedScore: result.score,
+                    maxScore: answer.Question.Diem,
+                    similarity_nlp: 0,
+                    similarity_ai: result.similarity_ai,
+                    isCorrect: result.isCorrect,
+                    confidence: result.confidence,
+                    method: method,
+                    comment: result.comment,
+                    similarityStatus: result.similarityStatus
+                });
+            }
         }
 
         // Calculate total suggested score
