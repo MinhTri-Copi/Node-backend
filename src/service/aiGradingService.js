@@ -1,6 +1,7 @@
 import db from '../models/index';
 import natural from 'natural';
 import { OpenAI } from 'openai';
+import { gradeWithFastModel, checkFastGradingHealth } from './fastGradingClient';
 require('dotenv').config();
 
 // Polyfill fetch and FormData for Node.js < 18
@@ -246,6 +247,62 @@ const getSimilarityStatus = (similarity) => {
     }
 };
 
+/**
+ * Build comment from score (PHA D - Bước D2)
+ */
+const buildCommentFromScore = (score, maxScore) => {
+    const ratio = maxScore > 0 ? score / maxScore : 0;
+    
+    if (ratio >= 0.9) {
+        return 'Đúng ý hoàn toàn, đầy đủ và chính xác';
+    } else if (ratio >= 0.7) {
+        return 'Đúng ý chính, đầy đủ';
+    } else if (ratio >= 0.5) {
+        return 'Đúng ý nhưng thiếu một số chi tiết';
+    } else if (ratio >= 0.3) {
+        return 'Có nhắc đến đúng khái niệm nhưng mơ hồ, chưa rõ ràng';
+    } else {
+        return 'Lạc đề hoặc trả lời sai';
+    }
+};
+
+/**
+ * Generate comment using LLM (PHA D - Bước D4 - Optional)
+ */
+const generateCommentWithLLM = async (questionText, correctAnswer, studentAnswer, score, maxScore) => {
+    try {
+        const prompt = `Đây là câu hỏi: ${questionText}
+Đáp án đúng: ${correctAnswer}
+Câu trả lời của học sinh: ${studentAnswer}
+Điểm chấm: ${score}/${maxScore}
+
+Hãy viết 1 nhận xét ngắn (1-2 câu) bằng tiếng Việt, vừa khen vừa góp ý.`;
+
+        const response = await openai.chat.completions.create({
+            model: LM_STUDIO_MODEL,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'Bạn là giáo viên chấm bài. Viết nhận xét ngắn gọn, tích cực và có tính xây dựng.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 100
+        });
+
+        const comment = response.choices[0]?.message?.content || '';
+        return comment.trim() || buildCommentFromScore(score, maxScore);
+
+    } catch (error) {
+        console.warn('⚠️ Lỗi khi LLM sinh nhận xét, dùng comment mặc định:', error.message);
+        return buildCommentFromScore(score, maxScore);
+    }
+};
+
 // Normalize text for prompt: remove HTML, collapse spaces, trim length
 const normalizeForPrompt = (text, maxLen = 35) => {
     if (!text) return '';
@@ -401,11 +458,65 @@ const gradeAnswersBatch = async (gradingItems) => {
         }
 
         // Log số câu được lọc bởi NLP (TỐI ƯU: Log chi tiết để debug)
-        console.log(`📊 NLP lọc: ${nlpFilteredCount}/${essayItems.length} câu (similarity >= 0.88), cần LLM: ${itemsNeedingLLM.length} câu`);
+        console.log(`📊 NLP lọc: ${nlpFilteredCount}/${essayItems.length} câu (similarity >= 0.88), cần chấm: ${itemsNeedingLLM.length} câu`);
 
-        // Chỉ gọi LLM cho các câu cần thiết
+        // PHA D - Bước D2: Dùng ML model thay vì LLM để chấm nhanh hơn
         if (itemsNeedingLLM.length > 0) {
-            const optimalBatchSize = itemsNeedingLLM.length <= 30 ? itemsNeedingLLM.length : 30;
+            // Kiểm tra ML service có khả dụng không
+            let useMLModel = await checkFastGradingHealth();
+            let mlModelSuccess = false;
+            
+            if (useMLModel) {
+                // Dùng ML model (nhanh hơn)
+                console.log(`🚀 Đang chấm ${itemsNeedingLLM.length} câu bằng ML model...`);
+                const mlStartTime = Date.now();
+                
+                // Chuẩn bị items gửi sang Python
+                const items = itemsNeedingLLM.map((item) => ({
+                    correctAnswer: item.correctAnswer || '',
+                    studentAnswer: item.candidateAnswer || '',
+                    maxScore: item.maxScore || 10,
+                }));
+                
+                try {
+                    const fastResults = await gradeWithFastModel(items);
+                    const mlTime = Date.now() - mlStartTime;
+                    console.log(`✅ ML model chấm ${itemsNeedingLLM.length} câu trong ${mlTime}ms (${(mlTime / 1000).toFixed(2)}s)`);
+                    
+                    // Validate kết quả
+                    if (fastResults && fastResults.length === itemsNeedingLLM.length) {
+                        // Gán lại điểm cho từng câu
+                        fastResults.forEach((res, idx) => {
+                            const item = itemsNeedingLLM[idx];
+                            const score = res.score;
+                            const similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                            const status = getSimilarityStatus(similarity);
+                            const isCorrect = similarity >= 0.7;
+                            
+                            essayResults.push({
+                                index: item.index,
+                                score,
+                                similarity_ai: similarity,
+                                isCorrect,
+                                confidence: res.ratio || similarity,
+                                comment: buildCommentFromScore(score, item.maxScore),
+                                similarityStatus: status
+                            });
+                        });
+                        mlModelSuccess = true;
+                    } else {
+                        throw new Error(`ML model trả về ${fastResults?.length || 0} kết quả, cần ${itemsNeedingLLM.length}`);
+                    }
+                } catch (error) {
+                    console.error('❌ Lỗi khi gọi ML model, fallback về LLM:', error.message);
+                    mlModelSuccess = false;
+                }
+            }
+            
+            // Fallback về LLM nếu ML model không khả dụng hoặc lỗi
+            if (!mlModelSuccess) {
+                console.log(`🔄 Fallback về LLM để chấm ${itemsNeedingLLM.length} câu...`);
+                const optimalBatchSize = itemsNeedingLLM.length <= 30 ? itemsNeedingLLM.length : 30;
             const batches = [];
             for (let i = 0; i < itemsNeedingLLM.length; i += optimalBatchSize) {
                 batches.push(itemsNeedingLLM.slice(i, i + optimalBatchSize));
@@ -517,6 +628,7 @@ ${batch.map((item, i) => `${i + 1}|"${normalizeForPrompt(item.correctAnswer, 28)
                         similarityStatus: status
                     });
                 });
+            }
             }
         }
 

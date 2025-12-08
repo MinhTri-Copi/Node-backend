@@ -14,6 +14,7 @@ import violationController from '../controller/violationController';
 import interviewRoundController from '../controller/interviewRoundController';
 import meetingController from '../controller/meetingController';
 import questionBankController from '../controller/questionBankController';
+import trainingDataController from '../controller/trainingDataController';
 import upload from '../middleware/uploadCV';
 import uploadQuestionBank from '../middleware/uploadQuestionBank';
 import verifyJWT from '../middleware/verifyJWT';
@@ -103,6 +104,17 @@ const initWebRoutes = (app) => {
     app.get("/api/hr/question-banks/items/search", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankItems);
     app.delete("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.deleteQuestionBank);
     app.put("/api/hr/question-banks/items/:itemId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.updateQuestionBankItem);
+
+    // API Training Data (PHA A - Chuẩn bị dữ liệu cho ML model) (Require JWT + HR Role)
+    app.get("/api/hr/training-data/questions", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.getEssayQuestions);
+    app.get("/api/hr/training-data/answers", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.getGradedAnswers);
+    app.post("/api/hr/training-data/dataset", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.createDataset);
+    app.post("/api/hr/training-data/export", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.exportDataset);
+    
+    // API Debug - PHA B: Export dữ liệu để train (không cần JWT cho dev, có thể thêm sau)
+    app.get("/api/debug/export-answers", trainingDataController.exportAnswersForTraining);
+    app.get("/api/debug/answers-needing-grading", trainingDataController.getAnswersNeedingGrading);
+    app.post("/api/debug/grade-with-llm", trainingDataController.gradeWithLLM);
 
     // API Test Submission & Grading (Require JWT)
     app.post("/api/test-submissions/submit", verifyJWT.verifyJWT, testSubmissionController.submitTest);

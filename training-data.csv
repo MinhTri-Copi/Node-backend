@@ -1,0 +1,64 @@
+questionId,questionText,correctAnswer,studentAnswer,maxScore,teacherScore
+4,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,fsdafdsafdsa,vxcvc,10,
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,Java là một ngôn ngữ lập trình dùng để phát triển backend.,10,10
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,HTML dùng để xác định nội dung và bố cục của trang web.,1,0.5
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,CSS giúp website hiển thị đẹp hơn với màu sắc và bố cục.,10,7.5
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,JavaScript cho phép xử lý hành vi người dùng trên trình duyệt.,10,8.5
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,DOM giúp JavaScript thay đổi nội dung phần tử trên trang.,10,8.5
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,React hỗ trợ chia UI thành các component để tái sử dụng.,10,8.5
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,SPA hoạt động ở một trang duy nhất và thay đổi nội dung không tải lại.,10,8.5
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,Web responsive hiển thị tốt trên mọi thiết bị như mobile & desktop.,10,7.5
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,API giúp frontend lấy dữ liệu từ backend.,10,8.5
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",Browser lưu thông tin bằng cookies hoặc web storage.,10,7.5
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,Hành động click hay nhập liệu sẽ tạo ra events để JS xử lý.,10,7.5
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,asd ja vâ,10,3
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,fdsdaffd,1,
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,sadfdsaf,10,
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,fdsfads,10,
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,sadfdfdsa,10,
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,dsfdsafdf,10,
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,dsfsa,10,
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,dsfa,10,
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,sadfdfs,10,
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",ádf,10,
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,ádfdfs,10,
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,sdfsdf,1,1
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,sdfdsds,10,7
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,sdff,10,6
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,sdffs,10,4
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,sdf,10,2
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,sdf,10,8
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,sdf,10,7
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,sdf,10,6
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",sdf,10,5
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,sdf,10,4.5
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,ge,1,0.5
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,rt,10,3
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,tert,10,3.5
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,ert,10,2.5
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,er,10,3
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,te,10,3
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,ert,10,2.5
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,ter,10,2.5
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",ter,10,2
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,ete,10,3.5
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,fd,1,0.5
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,dfg,10,
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,gffgggg,10,
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,gggffg,10,
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,gfgfgf,10,
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,gfgffgfgf,10,
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,fgfgfgf,10,
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,fgfgfg,10,
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",gfgfgf,10,
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,gfgfg,10,
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,dgfg,1,0.5
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,dfgd,10,3
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,dgfd,10,2.5
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,dfgdf,10,3
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,df,10,3
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,gfdg,10,3.5
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,dggdf,10,2.5
+16,API là gì?,API cho phép ứng dụng giao tiếp và trao đổi dữ liệu với server.,dfgf,10,2
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.",dffd,10,1.5
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,dfgfd,10,
