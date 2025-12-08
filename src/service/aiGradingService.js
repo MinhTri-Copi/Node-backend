@@ -63,6 +63,10 @@ const openai = new OpenAI({
     fetch: global.fetch,
 });
 
+// Optional flags
+const ENABLE_LLM_RECHECK = process.env.ENABLE_LLM_RECHECK === 'true'; // chấm lại ca khó (0.4-0.6) bằng LLM
+const ENABLE_LLM_COMMENT = process.env.ENABLE_LLM_COMMENT === 'true'; // sinh nhận xét bằng LLM
+
 /**
  * Parse JSON from LLM response (handle reasoning tags, markdown, etc.)
  * Supports both JSON objects and arrays
@@ -252,17 +256,39 @@ const getSimilarityStatus = (similarity) => {
  */
 const buildCommentFromScore = (score, maxScore) => {
     const ratio = maxScore > 0 ? score / maxScore : 0;
-    
+    // Tạo chút đa dạng dựa trên điểm để tránh lặp lại một câu
+    const pick = (arr) => arr[Math.max(0, Math.min(arr.length - 1, Math.floor((ratio * 10) % arr.length)))];
+
     if (ratio >= 0.9) {
-        return 'Đúng ý hoàn toàn, đầy đủ và chính xác';
+        return pick([
+            'Đúng ý hoàn toàn, đầy đủ và chính xác',
+            'Bài làm tốt, nêu đủ ý trọng tâm',
+            'Nội dung đầy đủ, diễn đạt rõ ràng'
+        ]);
     } else if (ratio >= 0.7) {
-        return 'Đúng ý chính, đầy đủ';
+        return pick([
+            'Đúng ý chính, khá đầy đủ',
+            'Bài làm đúng hướng, còn thiếu ít chi tiết',
+            'Nội dung ổn, cần bổ sung thêm ví dụ/chi tiết'
+        ]);
     } else if (ratio >= 0.5) {
-        return 'Đúng ý nhưng thiếu một số chi tiết';
+        return pick([
+            'Đúng ý nhưng thiếu một số chi tiết quan trọng',
+            'Có hướng đúng, cần làm rõ thêm nội dung',
+            'Đã nêu ý chính nhưng còn sơ sài'
+        ]);
     } else if (ratio >= 0.3) {
-        return 'Có nhắc đến đúng khái niệm nhưng mơ hồ, chưa rõ ràng';
+        return pick([
+            'Có nhắc đến khái niệm nhưng còn mơ hồ, chưa rõ ràng',
+            'Nội dung chưa rõ, thiếu liên kết với đáp án',
+            'Cần làm rõ hơn, hiện vẫn chưa đủ ý'
+        ]);
     } else {
-        return 'Lạc đề hoặc trả lời sai';
+        return pick([
+            'Lạc đề hoặc trả lời sai ý chính',
+            'Chưa đúng nội dung, cần xem lại đáp án',
+            'Bài làm chưa liên quan đến câu hỏi'
+        ]);
     }
 };
 
@@ -485,11 +511,38 @@ const gradeAnswersBatch = async (gradingItems) => {
                     
                     // Validate kết quả
                     if (fastResults && fastResults.length === itemsNeedingLLM.length) {
-                        // Gán lại điểm cho từng câu
-                        fastResults.forEach((res, idx) => {
+                        // Gán lại điểm cho từng câu (có thể re-check bằng LLM cho ca khó)
+                        for (let idx = 0; idx < fastResults.length; idx++) {
+                            const res = fastResults[idx];
                             const item = itemsNeedingLLM[idx];
-                            const score = res.score;
-                            const similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                            let score = res.score;
+                            let similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                            let confidence = res.ratio || similarity;
+                            let comment = buildCommentFromScore(score, item.maxScore);
+
+                            // Re-check bằng LLM cho ca lưng chừng
+                            if (ENABLE_LLM_RECHECK && item.questionType === 'tuluan' && similarity >= 0.4 && similarity <= 0.6) {
+                                try {
+                                    const llmRes = await gradeWithLLM(item.candidateAnswer, item.correctAnswer, item.maxScore, item.questionText);
+                                    score = llmRes.score;
+                                    similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
+                                    confidence = Math.max(confidence, similarity);
+                                    comment = llmRes.comment || comment;
+                                } catch (err) {
+                                    console.warn(`⚠️ Lỗi LLM re-check câu ${idx + 1}:`, err.message);
+                                }
+                            }
+
+                            // Sinh nhận xét bằng LLM (optional)
+                            if (ENABLE_LLM_COMMENT && item.questionType === 'tuluan') {
+                                try {
+                                    const cmt = await generateCommentWithLLM(item.questionText, item.correctAnswer, item.candidateAnswer, score, item.maxScore);
+                                    comment = cmt || comment;
+                                } catch (err) {
+                                    console.warn(`⚠️ Lỗi LLM comment câu ${idx + 1}:`, err.message);
+                                }
+                            }
+
                             const status = getSimilarityStatus(similarity);
                             const isCorrect = similarity >= 0.7;
                             
@@ -498,11 +551,11 @@ const gradeAnswersBatch = async (gradingItems) => {
                                 score,
                                 similarity_ai: similarity,
                                 isCorrect,
-                                confidence: res.ratio || similarity,
-                                comment: buildCommentFromScore(score, item.maxScore),
+                                confidence,
+                                comment,
                                 similarityStatus: status
                             });
-                        });
+                        }
                         mlModelSuccess = true;
                     } else {
                         throw new Error(`ML model trả về ${fastResults?.length || 0} kết quả, cần ${itemsNeedingLLM.length}`);

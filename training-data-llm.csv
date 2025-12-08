@@ -1,0 +1,133 @@
+questionId,questionText,correctAnswer,studentAnswer,maxScore,teacherScore,label
+1,Node.js là gì và tại sao nó phù hợp để xây dựng API?,"Node.js là môi trường chạy JavaScript phía server, hỗ trợ xử lý bất đồng bộ giúp API phản hồi nhanh và chịu tải tốt.","Node.js là một framework web cho phép xây dựng API. Nó sử dụng JavaScript để thực thi các câu lệnh bất đồng bộ, giảm thiểu lỗi trong quá trình xử lý dữ liệu.",10,10,correct
+1,Node.js là gì và tại sao nó phù hợp để xây dựng API?,"Node.js là môi trường chạy JavaScript phía server, hỗ trợ xử lý bất đồng bộ giúp API phản hồi nhanh và chịu tải tốt.","Node.js là một ngôn ngữ lập trình đa ngôn ngữ được dùng rộng rãi trong việc phát triển ứng dụng web. Tuy nhiên, nó không phù hợp để xây dựng API.",10,5.5,partial
+1,Node.js là gì và tại sao nó phù hợp để xây dựng API?,"Node.js là môi trường chạy JavaScript phía server, hỗ trợ xử lý bất đồng bộ giúp API phản hồi nhanh và chịu tải tốt.",Node.js không phải là môi trường chạy JavaScript phía server mà là dịch vụ cloud. Nó cũng không hỗ trợ xử lý bất đồng bộ và API.,10,1,wrong
+1,Node.js là gì và tại sao nó phù hợp để xây dựng API?,"Node.js là môi trường chạy JavaScript phía server, hỗ trợ xử lý bất đồng bộ giúp API phản hồi nhanh và chịu tải tốt.","Node.js là một thư viện của JavaScript, cho phép tạo ứng dụng web theo kiểu Node.js. Tuy nhiên, nó không phù hợp để xây dựng API.",10,0,garbage
+2,HTTP method nào dùng để tạo mới dữ liệu trên server? Giải thích ngắn gọn.,POST — dùng để gửi dữ liệu mới lên server để tạo bản ghi mới trong cơ sở dữ liệu.,POST,10,10,correct
+2,HTTP method nào dùng để tạo mới dữ liệu trên server? Giải thích ngắn gọn.,POST — dùng để gửi dữ liệu mới lên server để tạo bản ghi mới trong cơ sở dữ liệu.,PUT,10,6,partial
+2,HTTP method nào dùng để tạo mới dữ liệu trên server? Giải thích ngắn gọn.,POST — dùng để gửi dữ liệu mới lên server để tạo bản ghi mới trong cơ sở dữ liệu.,DELETE,10,0,wrong
+2,HTTP method nào dùng để tạo mới dữ liệu trên server? Giải thích ngắn gọn.,POST — dùng để gửi dữ liệu mới lên server để tạo bản ghi mới trong cơ sở dữ liệu.,GET,10,0,garbage
+3,Middleware trong Express.js có vai trò gì?,"Middleware xử lý logic trung gian như xác thực, parse dữ liệu… trước khi request đến controller hoặc trước khi trả response.","Middleware xử lý logic trung gian như xác thực, parse dữ liệu… trước khi request đến controller hoặc trước khi trả response.",10,9,correct
+3,Middleware trong Express.js có vai trò gì?,"Middleware xử lý logic trung gian như xác thực, parse dữ liệu… trước khi request đến controller hoặc trước khi trả response.",Middleware là lớp mã xử lý giữa các hàm của Node.js và những ứng dụng client,10,0,garbage
+3,Middleware trong Express.js có vai trò gì?,"Middleware xử lý logic trung gian như xác thực, parse dữ liệu… trước khi request đến controller hoặc trước khi trả response.",Middleware giúp giảm load cho server và tăng tốc độ truy cập website,10,6.5,partial
+3,Middleware trong Express.js có vai trò gì?,"Middleware xử lý logic trung gian như xác thực, parse dữ liệu… trước khi request đến controller hoặc trước khi trả response.","Middleware có vai trò là một phần mềm quét web, tìm kiếm thông tin trên mạng",10,0,wrong
+4,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,fsdafdsafdsa,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,10,0,garbage
+4,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,fsdafdsafdsa,sadkjhfdskjfdsafdsa,10,6,partial
+4,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,fsdafdsafdsa,sadfkdhsdfhaksfjdshsdafdsafdsad,10,0.5,wrong
+4,sadkjhfdsfkajfhajksfdhsdakjfhdasđ,fsdafdsafdsa,sadkjhfdsfkajfhajksfdhsdakjfhdasđsdfsdafs,10,10,correct
+6,JAVA LÀ GÌ,java là ngôn ngữ phát triển back end,java là ngôn ngữ lập trình toàn diện,1,1,correct
+6,JAVA LÀ GÌ,java là ngôn ngữ phát triển back end,java là một ngôn ngữ lập trình hướng object,1,0.5,partial
+6,JAVA LÀ GÌ,java là ngôn ngữ phát triển back end,java không phải là ngôn ngữ backend,1,0,wrong
+6,JAVA LÀ GÌ,java là ngôn ngữ phát triển back end,java là ngôn ngữ phát triển front-end,1,0,garbage
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,Java là một ngôn ngữ lập trình toàn diện.,10,9,correct
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,Java được sử dụng để tạo các ứng dụng trên máy tính.,10,6.5,partial
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,"Java không phải là một ngôn ngữ phát triển back end, nó còn có tên gọi khác như J2EE.",10,0.5,wrong
+7,JAVA là gì,Java là ngôn ngữ phát triển back end,"Java được coi là một ngôn ngữ lập trình toàn diện, đặc biệt phù hợp với back-end development.",10,0,garbage
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,1,1,correct
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,HTML là một loại lập trình trực tiếp viết mã cho các phần tử HTML. ,1,0.5,partial
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,HTML chính là lập trình trực tiếp viết code cho phần tử HTML,1,0,wrong
+9,HTML là gì?,HTML là ngôn ngữ đánh dấu dùng để xây dựng cấu trúc trang web.,HTML là ngôn ngữ lập trình dùng để tạo ra cấu trúc trang web.,1,0,garbage
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,CSS dùng để tạo kiểu và trình bày giao diện trang web.,10,9.5,correct
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,CSS có thể dùng để tạo kiểu và trình bày giao diện trang web.,10,6.5,partial
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,CSS không phải là gì cả,10,1.5,wrong
+10,CSS dùng để làm gì?,CSS dùng để tạo kiểu và trình bày giao diện trang web.,CSS chỉ sử dụng cho các phần mềm thiết kế đồ họa.,10,0,garbage
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,JavaScript giúp trang web tương tác và phản hồi người dùng.,10,9.5,correct
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,JavaScript là ngôn ngữ lập trình được sử dụng để tạo các ứng dụng web độc đáo và mạnh mẽ.,10,6,partial
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,"Rác, không liên quan đến JavaScript.",10,0,garbage
+11,JavaScript là gì?,JavaScript giúp trang web tương tác và phản hồi người dùng.,JavaScript giúp trang web hoạt động một cách linh hoạt và dễ dàng thay đổi nội dung.,10,0,wrong
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,10,9,correct
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,DOM là một lớp dữ liệu đại diện cấu trúc trang web mà JS thao tác.,10,6.5,partial
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,DOM là một hàm thao tác trực tiếp trên cấu trúc trang web.,10,2,wrong
+12,DOM trong JavaScript là gì?,DOM là mô hình tài liệu đại diện cấu trúc trang web để JS thao tác.,DOM là một đoạn mã đại diện cấu trúc trang web cho việc JS thao tác.,10,0,garbage
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,React là thư viện JS dùng để xây dựng giao diện theo component.,10,9,correct
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,React là công cụ phát triển web giúp tạo ra các ứng dụng trực tuyến.,10,6.5,partial
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,React được sử dụng rộng rãi trong việc xây dựng các website và ứng dụng di động.,10,0,garbage
+13,React là gì?,React là thư viện JS dùng để xây dựng giao diện theo component.,React là một ngôn ngữ lập trình JavaScript.,10,0,wrong
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,10,10,correct
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,SPA là một loại công cụ cho quản lý dữ liệu web.,10,6.5,partial
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,SPA là viết tắt của 'Single Page Application'.,10,1.5,wrong
+14,SPA là gì?,SPA là ứng dụng web tải 1 lần và cập nhật nội dung động mà không reload trang.,SPA là một thuật ngữ chỉ về cách tạo các ứng dụng điện tử trực tuyến.,10,0,garbage
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,Responsive Design là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,10,9.5,correct
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,Responsive Design là một kỹ thuật để tạo ra giao diện có thể thích ứng với các kích thước khác nhau của màn hình.,10,6.5,partial
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,Responsive Design không chỉ giúp giao diện phù hợp nhiều kích thước màn hình mà còn cần phải đảm bảo tính linh hoạt và tương thích trên nhiều loại thiết bị.,10,1,wrong
+15,Responsive Design là gì?,Là kỹ thuật giúp giao diện phù hợp nhiều kích thước màn hình.,Responsive Design là một dạng viết code đặc biệt để tạo ra giao diện riêng cho từng thiết bị.,10,0,garbage
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.","Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage",10,9.5,correct
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.","Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage",10,9.5,correct
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.","Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage",10,6.5,partial
+17,Lưu trữ dữ liệu trình duyệt?,"Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage.","Trình duyệt lưu dữ liệu bằng cookies, localStorage, sessionStorage",10,0,garbage
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,10,9,correct
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,Event là một sự kiện của JavaScript,10,6,partial
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,Event không thuộc về JavaScript,10,1,wrong
+18,JavaScript Event là gì?,Event là sự kiện xảy ra trên web kích hoạt mã JS chạy.,Event là một sự kiện phát sinh từ các trang web,10,0,garbage
+21,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.","Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",10,9,correct
+21,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer là một người làm backend của công ty.,10,6.5,partial
+21,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer chỉ tạo ra các đoạn mã mà không cần đến hệ thống.,10,1.5,wrong
+21,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.","Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend. Không liên quan đến công việc của backend developer.",10,0,garbage
+23,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.","Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",10,9.5,correct
+23,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer là người viết code backend,10,6.5,partial
+23,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer tạo ra các API để backend và frontend kết nối với nhau,10,2,wrong
+23,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer là một ngành học,10,0,garbage
+24,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.","Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",10,10,correct
+24,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer là người phát triển các component của hệ thống web.,10,0.5,wrong
+24,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer không phải là một công việc mà ai cũng có thể làm được.,10,9.5,correct
+24,Backend Developer là gì?,"Backend Developer phát triển logic xử lý, API, database, bảo mật và hiệu năng phía server để phục vụ dữ liệu cho frontend.",Backend Developer chỉ負責 quản lý server mà thôi.,10,0,garbage
+25,RESTful API là gì?,"RESTful API tuân theo các nguyên tắc REST: stateless, cacheable, client-server, resource-based, dùng HTTP method cho CRUD.","RESTful API là một giao thức web sử dụng HTTP/HTTPS để thực hiện CRUD (Create, Read, Update, Delete) các đối tượng dữ liệu trên một hệ thống di động hoặc máy tính.",10,0,garbage
+25,RESTful API là gì?,"RESTful API tuân theo các nguyên tắc REST: stateless, cacheable, client-server, resource-based, dùng HTTP method cho CRUD.","RESTful API tuân theo các nguyên tắc REST: stateless, cacheable, client-server, resource-based, dùng HTTP method cho CRUD.",10,9.5,correct
+25,RESTful API là gì?,"RESTful API tuân theo các nguyên tắc REST: stateless, cacheable, client-server, resource-based, dùng HTTP method cho CRUD.",Đúng một phần,10,6,partial
+25,RESTful API là gì?,"RESTful API tuân theo các nguyên tắc REST: stateless, cacheable, client-server, resource-based, dùng HTTP method cho CRUD.",Rác (không liên quan),10,0,garbage
+26,Khác nhau giữa synchronous và asynchronous?,"Sync: chạy tuần tự, block.Async: không block, xử lý qua callback/promise, chạy song song.","Sync: chạy tuần tự, block.",10,6.5,partial
+26,Khác nhau giữa synchronous và asynchronous?,"Sync: chạy tuần tự, block.Async: không block, xử lý qua callback/promise, chạy song song.","Async: không block, xử lý qua callback/promise, chạy song song.",10,9.5,correct
+26,Khác nhau giữa synchronous và asynchronous?,"Sync: chạy tuần tự, block.Async: không block, xử lý qua callback/promise, chạy song song.","Khác nhau giữa synchronous và asynchronous là Sync chạy tuần tự, block. Async không block, xử lý qua callback/promise, chạy song song.",10,9.5,correct
+26,Khác nhau giữa synchronous và asynchronous?,"Sync: chạy tuần tự, block.Async: không block, xử lý qua callback/promise, chạy song song.",Rác (không liên quan).,10,0,garbage
+27,Khác nhau giữa Promise và async/await?,"Promise là object quản lý async; async/await giúp viết code async như sync, dễ đọc hơn.","Promise là object quản lý async; async/await giúp viết code async như sync, dễ đọc hơn.",10,10,correct
+27,Khác nhau giữa Promise và async/await?,"Promise là object quản lý async; async/await giúp viết code async như sync, dễ đọc hơn.",Khác nhau giữa Promise và async/await là cách xử lý trạng thái và kết quả của các thao tác async.,10,9,correct
+27,Khác nhau giữa Promise và async/await?,"Promise là object quản lý async; async/await giúp viết code async như sync, dễ đọc hơn.","Promise hỗ trợ xử lý thô lỗ trong việc xử lý async. async/await giúp viết code dễ đọc hơn, không cần sử dụng callback.",10,9,correct
+27,Khác nhau giữa Promise và async/await?,"Promise là object quản lý async; async/await giúp viết code async như sync, dễ đọc hơn.",Rác (không liên quan) - không có đáp án đúng,10,0,garbage
+28,Middleware trong Express là gì?,"Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate,…","Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate, ...",10,9.5,correct
+28,Middleware trong Express là gì?,"Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate,…","Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate, ...",10,6,partial
+28,Middleware trong Express là gì?,"Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate,…",Rác (không liên quan),10,0,garbage
+28,Middleware trong Express là gì?,"Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate,…","Middleware là hàm xử lý request/response trước khi vào route. Dùng cho auth, log, validate, ...",10,10,correct
+29,Tại sao Node.js phù hợp realtime?,Node dùng event-driven + non-blocking I/O → xử lý nhiều connection realtime hiệu quả (WebSocket).,Node sử dụng model-event-driven cho phép xử lý nhiều kết nối realtime hiệu quả qua WebSocket.,10,0.5,
+29,Tại sao Node.js phù hợp realtime?,Node dùng event-driven + non-blocking I/O → xử lý nhiều connection realtime hiệu quả (WebSocket).,Node.js phù hợp với real-time do khả năng xử lý các stream dữ liệu không gián đoạn và khả năng tạo ra ứng dụng giao diện người dùng (UI) trực tiếp trên máy chủ.,10,0.5,
+29,Tại sao Node.js phù hợp realtime?,Node dùng event-driven + non-blocking I/O → xử lý nhiều connection realtime hiệu quả (WebSocket).,Node không phải là lựa chọn tốt cho real-time vì nó không hỗ trợ WebSocket.,10,0.5,
+29,Tại sao Node.js phù hợp realtime?,Node dùng event-driven + non-blocking I/O → xử lý nhiều connection realtime hiệu quả (WebSocket).,"Rất nhiều học viên nghĩ Node.js phù hợp với real-time, nhưng thực tế lại không đúng. Trong thực tế, việc sử dụng Node.js trong môi trường real-time đòi hỏi các kỹ thuật khác như Server-Sent Events hoặc WebSockets được cài đặt và cấu hình riêng.",10,1,
+30,JWT là gì? Cấu trúc gồm mấy phần?,"JWT là token xác thực gồm 3 phần: Header, Payload, Signature.","JWT là token xác thực gồm 3 phần: Header, Payload, Signature.",10,9,correct
+30,JWT là gì? Cấu trúc gồm mấy phần?,"JWT là token xác thực gồm 3 phần: Header, Payload, Signature.",JWT là một công nghệ mã hóa dữ liệu bằng token.,10,2,wrong
+30,JWT là gì? Cấu trúc gồm mấy phần?,"JWT là token xác thực gồm 3 phần: Header, Payload, Signature.","JWT có cấu trúc gồm 3 phần: header, payload, signature.",10,5,partial
+30,JWT là gì? Cấu trúc gồm mấy phần?,"JWT là token xác thực gồm 3 phần: Header, Payload, Signature.",JWT không được chia thành 3 phần rõ ràng trong cấu trúc.,10,0,garbage
+31,SQL Injection là gì và cách phòng chống?,"Tấn công chèn lệnh SQL. Phòng bằng prepared statement, ORM, validate input.",Tấn công chèn lệnh SQL,10,10,correct
+31,SQL Injection là gì và cách phòng chống?,"Tấn công chèn lệnh SQL. Phòng bằng prepared statement, ORM, validate input.",Prepared statement và ORM,10,10,correct
+31,SQL Injection là gì và cách phòng chống?,"Tấn công chèn lệnh SQL. Phòng bằng prepared statement, ORM, validate input.",Phòng bằng validate input,10,9,correct
+31,SQL Injection là gì và cách phòng chống?,"Tấn công chèn lệnh SQL. Phòng bằng prepared statement, ORM, validate input.",SQL Injection là gì?,10,0,garbage
+32,SQL vs NoSQL khác gì nhau?,"SQL: bảng, quan hệ, ACID.NoSQL: linh hoạt, document/key-value, scale tốt.","SQL: bảng, quan hệ, ACID.",10,9,correct
+32,SQL vs NoSQL khác gì nhau?,"SQL: bảng, quan hệ, ACID.NoSQL: linh hoạt, document/key-value, scale tốt.","NoSQL: linh hoạt, document/key-value, scale tốt.",10,6.5,partial
+32,SQL vs NoSQL khác gì nhau?,"SQL: bảng, quan hệ, ACID.NoSQL: linh hoạt, document/key-value, scale tốt.",Rác (không liên quan).,10,0,garbage
+32,SQL vs NoSQL khác gì nhau?,"SQL: bảng, quan hệ, ACID.NoSQL: linh hoạt, document/key-value, scale tốt.","SQL: linh hoạt, document/key-value, scale tốt. NoSQL: bảng, quan hệ, ACID.",10,0,wrong
+33,Index trong DB là gì?,"Index giúp truy vấn nhanh hơn bằng cách tạo cấu trúc tìm kiếm, nhưng làm chậm insert/update.","Index giúp truy vấn nhanh hơn bằng cách tạo cấu trúc tìm kiếm, nhưng làm chậm insert/update.",10,9.5,correct
+33,Index trong DB là gì?,"Index giúp truy vấn nhanh hơn bằng cách tạo cấu trúc tìm kiếm, nhưng làm chậm insert/update.",Index là một loại thông tin được lưu trữ trong cơ sở dữ liệu để giúp việc truy vấn và cập nhật dữ liệu trở nên nhanh chóng hơn.,10,6,partial
+33,Index trong DB là gì?,"Index giúp truy vấn nhanh hơn bằng cách tạo cấu trúc tìm kiếm, nhưng làm chậm insert/update.","Index chỉ là một cách để tăng tốc độ tìm kiếm mà không có tác động đến hoạt động thêm, insert, update dữ liệu.",10,2,wrong
+33,Index trong DB là gì?,"Index giúp truy vấn nhanh hơn bằng cách tạo cấu trúc tìm kiếm, nhưng làm chậm insert/update.",Index trong DB là những dòng dữ liệu được sắp xếp theo thứ tự của các giá trị duy nhất của một hoặc nhiều trường của bảng.,10,0,garbage
+34,ORM là gì?,"ORM ánh xạ object ↔ database. Ưu: dễ dùng, tránh SQL injection. Nhược: chậm hơn raw query.",ORM là một công cụ giúp chuyển đổi dữ liệu giữa bảng database và các đối tượng lập trình.,10,1,
+34,ORM là gì?,"ORM ánh xạ object ↔ database. Ưu: dễ dùng, tránh SQL injection. Nhược: chậm hơn raw query.",ORM là phương thức cho phép người dùng chuyển đổi từ các đối tượng lập trình vào bảng database.,10,0,
+34,ORM là gì?,"ORM ánh xạ object ↔ database. Ưu: dễ dùng, tránh SQL injection. Nhược: chậm hơn raw query.",ORM chỉ đơn giản là cách để lập trình viên sử dụng một cơ sở dữ liệu.,10,2,
+34,ORM là gì?,"ORM ánh xạ object ↔ database. Ưu: dễ dùng, tránh SQL injection. Nhược: chậm hơn raw query.",ORM là thuật toán được sử dụng trong việc thực hiện các thao tác trên cơ sở dữ liệu mà không cần quan tâm đến SQL injection,10,1,
+35,"Các loại quan hệ DB 1-1, 1-n, n-n",1-1: User ↔ Profile1-n: User ↔ Postsn-n: Student ↔ Courses (qua table trung gian),1-1: User ↔ Profile,10,9.5,correct
+35,"Các loại quan hệ DB 1-1, 1-n, n-n",1-1: User ↔ Profile1-n: User ↔ Postsn-n: Student ↔ Courses (qua table trung gian),n-n: Student ↔ Courses,10,1.5,wrong
+35,"Các loại quan hệ DB 1-1, 1-n, n-n",1-1: User ↔ Profile1-n: User ↔ Postsn-n: Student ↔ Courses (qua table trung gian),n-n: Student ↔ Courses (qua table trung gian),10,0,garbage
+35,"Các loại quan hệ DB 1-1, 1-n, n-n",1-1: User ↔ Profile1-n: User ↔ Postsn-n: Student ↔ Courses (qua table trung gian),1-1: User ↔ Profile1-n: User ↔ Postsn-n: Student ↔ Courses,10,10,correct
+36,Rate Limit là gì?,Giới hạn số request từ 1 IP để tránh spam/DDoS.,Giới hạn số request từ 1 IP để tránh spam/DDoS.,10,9,correct
+36,Rate Limit là gì?,Giới hạn số request từ 1 IP để tránh spam/DDoS.,Rate Limit là giới hạn số request từ 1 IP để tránh spam/DDoS.,10,6.5,partial
+36,Rate Limit là gì?,Giới hạn số request từ 1 IP để tránh spam/DDoS.,Rate Limit không phải là giới hạn số request từ 1 IP để tránh spam/DDoS.,10,1,wrong
+36,Rate Limit là gì?,Giới hạn số request từ 1 IP để tránh spam/DDoS.,Rate Limit là một thuật ngữ khác về giới hạn số request từ 1 IP để tránh spam/DDoS.,10,0,garbage
+37,Load Balancer là gì?,Phân phối request đến nhiều server để tăng hiệu năng và tránh quá tải.,Phân phối request đến nhiều server để tăng hiệu năng và tránh quá tải.,10,10,correct
+37,Load Balancer là gì?,Phân phối request đến nhiều server để tăng hiệu năng và tránh quá tải.,Phân phối request đến nhiều server để giảm thời gian load lên trang web,10,5.5,partial
+37,Load Balancer là gì?,Phân phối request đến nhiều server để tăng hiệu năng và tránh quá tải.,Rất nhiều server giúp đỡ trong việc phân bổ các yêu cầu từ người dùng đến một số máy chủ khác nhau,10,0,garbage
+37,Load Balancer là gì?,Phân phối request đến nhiều server để tăng hiệu năng và tránh quá tải.,Load Balancer là thiết bị bảo vệ máy chủ trước các sự cố bất thường ,10,1,wrong
+38,CI/CD là gì?,"Quy trình tự động build, test, deploy giúp phát triển nhanh và giảm lỗi.","Quy trình tự động build, test, deploy giúp phát triển nhanh và giảm lỗi.",10,10,correct
+38,CI/CD là gì?,"Quy trình tự động build, test, deploy giúp phát triển nhanh và giảm lỗi.","Quy trình tự động build, test, deploy là CI/CD.",10,9.5,correct
+38,CI/CD là gì?,"Quy trình tự động build, test, deploy giúp phát triển nhanh và giảm lỗi.","CI/CD là quy trình tự động build, test, deploy.",10,7,partial
+38,CI/CD là gì?,"Quy trình tự động build, test, deploy giúp phát triển nhanh và giảm lỗi.","Quy trình CI/CD giúp phát triển nhanh và giảm lỗi bằng việc tự độngize process build, test, deploy.",10,0,garbage
+39,Horizontal scaling vs Vertical scaling,Horizontal: thêm nhiều server.Vertical: tăng cấu hình server hiện tại.,Horizontal: thêm nhiều server. Vertical: tăng cấu hình server hiện tại.,10,9.5,correct
+39,Horizontal scaling vs Vertical scaling,Horizontal: thêm nhiều server.Vertical: tăng cấu hình server hiện tại.,Horizontal: giảm số lượng server. Vertical: tăng cấu hình server hiện tại.,10,6,partial
+39,Horizontal scaling vs Vertical scaling,Horizontal: thêm nhiều server.Vertical: tăng cấu hình server hiện tại.,Horizontal: thêm nhiều server. Vertical: tăng cấu hình server hiện tại.,10,0,wrong
+39,Horizontal scaling vs Vertical scaling,Horizontal: thêm nhiều server.Vertical: tăng cấu hình server hiện tại.,Horizontal: tăng số lượng server. Vertical: giảm cấu hình server hiện tại.,10,0,garbage

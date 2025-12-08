@@ -315,46 +315,28 @@ const startTestForApplication = async (userId, applicationId) => {
             };
         }
 
-        if (application.applicationStatusId !== 4) {
-            return {
-                EM: 'Đơn ứng tuyển này chưa được duyệt!',
-                EC: 3,
-                DT: null
-            };
+        // Chọn bài test còn hiệu lực của JobPosting (cho phép nhiều test nhưng chỉ gửi test active)
+        let test = null;
+        if (application.JobPosting?.id) {
+            const tests = await db.Test.findAll({
+                where: { jobPostingId: application.JobPosting.id },
+                attributes: ['id', 'Tieude', 'Thoigiantoida', 'Ngaybatdau', 'Ngayhethan', 'Trangthai'],
+                order: [['Ngaybatdau', 'ASC'], ['id', 'ASC']]
+            });
+
+            for (const t of tests) {
+                const state = getTestAccessState(t);
+                if (state === 'active') {
+                    test = t;
+                    break;
+                }
+            }
         }
 
-        const test = application.JobPosting?.Test;
-
-        if (!test || test.Trangthai === 0) {
+        if (!test) {
             return {
-                EM: 'Tin tuyển dụng này chưa có bài test!',
+                EM: 'Không có bài test còn hiệu lực cho tin tuyển dụng này!',
                 EC: 4,
-                DT: null
-            };
-        }
-
-        const accessState = getTestAccessState(test);
-
-        if (accessState === 'pending') {
-            return {
-                EM: 'Bài test chưa đến thời gian bắt đầu!',
-                EC: 6,
-                DT: null
-            };
-        }
-
-        if (accessState === 'expired') {
-            return {
-                EM: 'Bài test đã kết thúc!',
-                EC: 7,
-                DT: null
-            };
-        }
-
-        if (accessState === 'inactive') {
-            return {
-                EM: 'Bài test hiện không khả dụng!',
-                EC: 8,
                 DT: null
             };
         }
