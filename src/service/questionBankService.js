@@ -799,7 +799,7 @@ const uploadQuestionBank = async (userId, file, data) => {
             questionBankId: questionBank.id
         }));
 
-        await db.QuestionBankItem.bulkCreate(itemsToCreate, { transaction });
+        const createdItems = await db.QuestionBankItem.bulkCreate(itemsToCreate, { transaction });
 
         // Update QuestionBank metadata with final stats
         const topics = [...new Set(classifiedQuestions.map(q => q.chude).filter(Boolean))];
@@ -818,13 +818,74 @@ const uploadQuestionBank = async (userId, file, data) => {
 
         await transaction.commit();
 
+        // B5: (Optional) Tự động sinh training data cho câu tự luận
+        // Chỉ chạy nếu có flag ENABLE trong env và không có lỗi
+        const autoGenerateTraining = process.env.AUTO_GENERATE_TRAINING_DATA === 'true';
+        const autoTrainML = process.env.AUTO_TRAIN_ML_MODEL === 'true';
+        let trainingDataResult = null;
+        
+        // Debug: Log trạng thái flag
+        console.log(`🔍 [DEBUG] AUTO_GENERATE_TRAINING_DATA = ${process.env.AUTO_GENERATE_TRAINING_DATA} (${autoGenerateTraining ? 'BẬT' : 'TẮT'})`);
+        console.log(`🔍 [DEBUG] AUTO_TRAIN_ML_MODEL = ${process.env.AUTO_TRAIN_ML_MODEL} (${autoTrainML ? 'BẬT' : 'TẮT'})`);
+        console.log(`🔍 [DEBUG] Số câu hỏi đã tạo: ${createdItems.length}`);
+        
+        if (autoGenerateTraining) {
+            // Chạy sinh training data trong background (không block response)
+            // Modal sẽ đóng ngay sau khi phân loại xong
+            setImmediate(async () => {
+                try {
+                    console.log('🤖 [Background] Đang tự động sinh training data từ câu hỏi vừa upload...');
+                    const trainingDataGenerationService = require('./trainingDataGenerationService');
+                    
+                    // Format createdItems để truyền vào service
+                    const questionsForTraining = createdItems.map(item => ({
+                        id: item.id,
+                        questionBankItemId: item.id,
+                        Cauhoi: item.Cauhoi,
+                        Dapan: item.Dapan,
+                        Diem: item.Diem || 10,
+                        Loaicauhoi: item.Loaicauhoi
+                    }));
+                    
+                    const result = await trainingDataGenerationService.autoGenerateAndSaveTrainingData(
+                        questionsForTraining,
+                        { 
+                            autoMerge: true,
+                            autoTrain: autoTrainML // Tự động train ML nếu được bật
+                        }
+                    );
+                    
+                    if (result.success) {
+                        console.log(`✅ [Background] ${result.message}`);
+                    } else {
+                        console.warn(`⚠️ [Background] ${result.message}`);
+                    }
+                } catch (trainingError) {
+                    // Không làm hỏng flow upload nếu sinh training data lỗi
+                    console.error('⚠️ [Background] Lỗi khi sinh training data:', trainingError.message);
+                }
+            });
+            
+            // Trả về ngay, không đợi training
+            trainingDataResult = {
+                success: true,
+                message: 'Đã bắt đầu sinh training data trong background',
+                trainingInProgress: true
+            };
+        }
+
         return {
             EM: 'Upload và trích xuất bộ đề thành công!',
             EC: 0,
             DT: {
                 questionBankId: questionBank.id,
                 totalQuestions: extractedQuestions.length,
-                fileName: file.originalname
+                fileName: file.originalname,
+                trainingDataGenerated: trainingDataResult ? {
+                    success: trainingDataResult.success,
+                    samplesCount: trainingDataResult.samplesCount || 0,
+                    message: trainingDataResult.message
+                } : null
             }
         };
 

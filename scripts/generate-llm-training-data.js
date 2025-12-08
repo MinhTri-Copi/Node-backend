@@ -113,27 +113,46 @@ const labelToRatio = (label) => {
 };
 
 const generateForQuestion = async (question) => {
-    const prompt = `Bạn là giáo viên ra đề và chấm bài. Với 1 câu hỏi và đáp án đúng, hãy sinh 4 câu trả lời mẫu của học viên:
-1) Đúng hoàn toàn
-2) Đúng một phần
-3) Sai
-4) Rác (không liên quan)
+    const prompt = `Bạn là giáo viên chấm bài. Nhiệm vụ: sinh 4 câu trả lời mẫu của học viên VÀ chấm điểm dựa trên SO SÁNH với đáp án mẫu.
 
-Mỗi mục trả về JSON object: {"answer":"...","label":"correct|partial|wrong|garbage"}
-Trả về JSON array 4 phần tử, không giải thích thêm.
+QUY TRÌNH CHẤM ĐIỂM:
+1. So sánh câu trả lời của học viên với đáp án mẫu (correctAnswer)
+2. Dựa trên mức độ giống/khác biệt để cho điểm
+3. Điểm số phải phản ánh chính xác mức độ đúng/sai so với đáp án mẫu
+
+4 LOẠI CÂU TRẢ LỜI CẦN SINH:
+1) Đúng hoàn toàn: So sánh với đáp án mẫu → giống hoàn toàn → cho điểm 80-100% maxScore
+2) Đúng một phần: So sánh với đáp án mẫu → giống một phần → cho điểm 40-70% maxScore  
+3) Sai: So sánh với đáp án mẫu → khác biệt nhiều → cho điểm 0-30% maxScore
+4) Rác: Không liên quan đến câu hỏi → cho điểm 0
+
+QUAN TRỌNG:
+- Điểm số (score) PHẢI dựa trên so sánh câu trả lời với đáp án mẫu (correctAnswer)
+- KHÔNG được cho điểm dựa trên label, mà phải so sánh thực tế
+- Mỗi câu trả lời phải có điểm số cụ thể (0 đến maxScore)
+
+Format JSON trả về:
+[
+  {"answer":"câu trả lời 1","label":"correct","score":9.5},
+  {"answer":"câu trả lời 2","label":"partial","score":6.0},
+  {"answer":"câu trả lời 3","label":"wrong","score":2.0},
+  {"answer":"câu trả lời 4","label":"garbage","score":0}
+]
 
 Câu hỏi: ${question.questionText}
-Đáp án đúng: ${question.correctAnswer}
-Điểm tối đa: ${question.maxScore}`;
+Đáp án mẫu (correctAnswer): ${question.correctAnswer}
+Điểm tối đa (maxScore): ${question.maxScore}
+
+BẮT BUỘC: Mỗi object phải có field "score" là số điểm (0 đến ${question.maxScore}) dựa trên so sánh với đáp án mẫu.`;
 
     const res = await client.chat.completions.create({
         model: LM_STUDIO_MODEL,
         messages: [
-            { role: 'system', content: 'Sinh câu trả lời mẫu để tạo dữ liệu train. Không giải thích, chỉ trả JSON.' },
+            { role: 'system', content: 'Bạn là giáo viên chấm bài. Sinh câu trả lời mẫu và chấm điểm dựa trên SO SÁNH với đáp án mẫu. BẮT BUỘC trả về field "score" trong mỗi object.' },
             { role: 'user', content: prompt }
         ],
         temperature: 0.8,
-        max_tokens: 400
+        max_tokens: 800 // Tăng để đủ cho cả answer và score chi tiết
     });
 
     const text = res.choices[0]?.message?.content || '';
@@ -141,18 +160,34 @@ Câu hỏi: ${question.questionText}
     if (!Array.isArray(parsed)) throw new Error('LLM không trả về mảng hợp lệ');
 
     // Chuẩn hóa kết quả
-    return parsed.map(item => {
+    return parsed.map((item, index) => {
         const studentAnswer = item.answer || item.text || '';
-        const ratio = labelToRatio(item.label);
-        const teacherScore = roundToHalf(ratio * (question.maxScore || 10));
+        const label = (item.label || '').toLowerCase();
+        
+        // BẮT BUỘC phải có score từ LLM (chấm dựa trên đáp án mẫu)
+        let teacherScore;
+        if (item.score !== undefined && item.score !== null) {
+            // LLM đã chấm điểm dựa trên so sánh với đáp án mẫu
+            teacherScore = parseFloat(item.score);
+            // Đảm bảo trong khoảng hợp lệ
+            teacherScore = Math.max(0, Math.min(teacherScore, question.maxScore || 10));
+        } else {
+            // Nếu LLM không trả về score, báo lỗi và skip (không dùng fallback)
+            console.error(`❌ LLM không trả về score cho item ${index + 1} (label: "${label}"). Bỏ qua item này.`);
+            throw new Error(`LLM không trả về score cho item ${index + 1}. Điểm số phải được chấm dựa trên so sánh với đáp án mẫu.`);
+        }
+        
+        // Làm tròn về 0.5
+        teacherScore = roundToHalf(teacherScore);
+        
         return {
             questionId: question.id,
             questionText: question.questionText,
             correctAnswer: question.correctAnswer,
             studentAnswer,
             maxScore: question.maxScore || 10,
-            teacherScore,
-            label: item.label || ''
+            teacherScore, // Điểm này đã được LLM chấm dựa trên so sánh với đáp án mẫu
+            label: label
         };
     });
 };
