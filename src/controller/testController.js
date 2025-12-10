@@ -115,7 +115,7 @@ const addMultipleQuestions = async (req, res) => {
  */
 const getMyTests = async (req, res) => {
     try {
-        const { userId, page = 1, limit = 10 } = req.query;
+        const { userId, page = 1, limit = 10, jobPostingId } = req.query;
 
         if (!userId) {
             return res.status(400).json({
@@ -128,7 +128,8 @@ const getMyTests = async (req, res) => {
         const result = await testService.getMyTests(
             parseInt(userId), 
             parseInt(page), 
-            parseInt(limit)
+            parseInt(limit),
+            jobPostingId ? parseInt(jobPostingId) : null
         );
 
         return res.status(200).json({

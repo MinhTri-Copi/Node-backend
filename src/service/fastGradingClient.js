@@ -72,7 +72,10 @@ export async function checkFastGradingHealth() {
         }
 
         const data = await response.json();
-        return data.status === 'ok' && data.model_loaded && data.embedder_loaded;
+        // Chấp nhận cả schema cũ (model_loaded/embedder_loaded) và schema mới (active_model/active_embedder)
+        const modelOk = data.model_loaded === undefined ? data.active_model : data.model_loaded;
+        const embedderOk = data.embedder_loaded === undefined ? data.active_embedder : data.embedder_loaded;
+        return data.status === 'ok' && modelOk && embedderOk;
 
     } catch (error) {
         console.warn('⚠️ Fast grading service không khả dụng:', error.message);

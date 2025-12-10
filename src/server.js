@@ -5,6 +5,8 @@ import { testConnection ,testConnectionpool} from './config/connectDB.js';
 import bodyParser from 'body-parser';
 import cors from './config/cors';
 import path from 'path';
+import { startHumanRetrainScheduler } from './cron/retrainHumanModel.js';
+import { startExpireTestScheduler } from './cron/expireTests.js';
 require('dotenv').config(); 
 
 const app = express();
@@ -36,3 +38,14 @@ const  testProject = async (app) => {
 
 
     testProject(app);
+
+// Khởi động auto-retrain nếu bật qua ENV
+if (process.env.AUTO_RETRAIN_ENABLED === 'true') {
+    const threshold = parseInt(process.env.AUTO_RETRAIN_THRESHOLD || '200', 10);
+    const intervalMinutes = parseInt(process.env.AUTO_RETRAIN_INTERVAL_MIN || '60', 10);
+    startHumanRetrainScheduler({ threshold, intervalMinutes });
+}
+
+// Tự động tắt các bài test đã hết hạn (mặc định 10 phút/lần, đổi bằng EXPIRE_TEST_INTERVAL_MIN)
+const expireInterval = parseInt(process.env.EXPIRE_TEST_INTERVAL_MIN || '10', 10);
+startExpireTestScheduler(expireInterval);

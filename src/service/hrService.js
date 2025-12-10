@@ -1236,36 +1236,72 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
             };
         }
 
-        // If status is 7 (Chuẩn bị phỏng vấn), find and set first interview round
-        let firstInterviewRound = null;
+        // If status is 7 (Chuẩn bị phỏng vấn), determine current round and find next round
+        let currentInterviewRound = null;
+        let nextInterviewRound = null;
         const jobPostingId = application.jobPostingId || application.JobPosting?.id;
         
         if (newStatusId === 7) {
-            console.log(`🔍 Đang tìm vòng phỏng vấn đầu tiên cho job posting ID: ${jobPostingId}`);
+            console.log(`🔍 Đang xác định vòng phỏng vấn cho job posting ID: ${jobPostingId}`);
             
-            firstInterviewRound = await db.InterviewRound.findOne({
+            // Find the most recent completed meeting for this application to determine current round
+            const latestMeeting = await db.Meeting.findOne({
                 where: {
-                    jobPostingId: jobPostingId,
-                    roundNumber: 1,
-                    isActive: true
-                }
+                    jobApplicationId: applicationId,
+                    status: 'done'
+                },
+                include: [{
+                    model: db.InterviewRound,
+                    as: 'InterviewRound',
+                    attributes: ['id', 'roundNumber', 'title', 'duration', 'description']
+                }],
+                order: [['finishedAt', 'DESC']]
             });
 
-            if (firstInterviewRound) {
-                console.log(`✅ Tìm thấy vòng phỏng vấn đầu tiên: ID=${firstInterviewRound.id}, roundNumber=${firstInterviewRound.roundNumber}, title=${firstInterviewRound.title}`);
-            } else {
-                console.warn(`⚠️ Không tìm thấy vòng phỏng vấn đầu tiên cho job posting ${jobPostingId}`);
-                // Try to find any active round if round 1 doesn't exist
-                const anyRound = await db.InterviewRound.findOne({
+            if (latestMeeting && latestMeeting.InterviewRound) {
+                currentInterviewRound = latestMeeting.InterviewRound;
+                console.log(`✅ Tìm thấy vòng phỏng vấn hiện tại: ID=${currentInterviewRound.id}, roundNumber=${currentInterviewRound.roundNumber}, title=${currentInterviewRound.title}`);
+                
+                // Find next round
+                nextInterviewRound = await db.InterviewRound.findOne({
                     where: {
                         jobPostingId: jobPostingId,
+                        roundNumber: currentInterviewRound.roundNumber + 1,
                         isActive: true
-                    },
-                    order: [['roundNumber', 'ASC']]
+                    }
                 });
-                if (anyRound) {
-                    console.log(`⚠️ Tìm thấy vòng phỏng vấn khác (roundNumber=${anyRound.roundNumber}) thay vì vòng 1`);
-                    firstInterviewRound = anyRound;
+
+                if (nextInterviewRound) {
+                    console.log(`✅ Tìm thấy vòng phỏng vấn tiếp theo: ID=${nextInterviewRound.id}, roundNumber=${nextInterviewRound.roundNumber}, title=${nextInterviewRound.title}`);
+                } else {
+                    console.log(`ℹ️ Không có vòng phỏng vấn tiếp theo. Đây là vòng cuối cùng.`);
+                }
+            } else {
+                // No completed meeting found, this might be first time approving (from test/application review)
+                // Find first interview round
+                console.log(`⚠️ Không tìm thấy meeting đã hoàn thành. Tìm vòng phỏng vấn đầu tiên...`);
+                nextInterviewRound = await db.InterviewRound.findOne({
+                    where: {
+                        jobPostingId: jobPostingId,
+                        roundNumber: 1,
+                        isActive: true
+                    }
+                });
+
+                if (nextInterviewRound) {
+                    console.log(`✅ Tìm thấy vòng phỏng vấn đầu tiên: ID=${nextInterviewRound.id}, roundNumber=${nextInterviewRound.roundNumber}, title=${nextInterviewRound.title}`);
+                } else {
+                    // Try to find any active round if round 1 doesn't exist
+                    nextInterviewRound = await db.InterviewRound.findOne({
+                        where: {
+                            jobPostingId: jobPostingId,
+                            isActive: true
+                        },
+                        order: [['roundNumber', 'ASC']]
+                    });
+                    if (nextInterviewRound) {
+                        console.log(`⚠️ Tìm thấy vòng phỏng vấn khác (roundNumber=${nextInterviewRound.roundNumber}) thay vì vòng 1`);
+                    }
                 }
             }
         }
@@ -1276,141 +1312,220 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
             Ngaycapnhat: new Date()
         };
 
-        if (firstInterviewRound) {
-            updateData.currentInterviewRoundId = firstInterviewRound.id;
-            console.log(`📝 Sẽ cập nhật currentInterviewRoundId = ${firstInterviewRound.id} cho application ${applicationId}`);
+        // If there's a next round, set it as currentInterviewRoundId
+        // If no next round (passed all rounds), keep currentInterviewRoundId as is (or set to null if needed)
+        if (nextInterviewRound) {
+            updateData.currentInterviewRoundId = nextInterviewRound.id;
+            console.log(`📝 Sẽ cập nhật currentInterviewRoundId = ${nextInterviewRound.id} (vòng ${nextInterviewRound.roundNumber}) cho application ${applicationId}`);
+        } else if (newStatusId === 7 && currentInterviewRound) {
+            // Passed all rounds, no next round - might want to set a "hired" status or keep current
+            console.log(`ℹ️ Ứng viên đã vượt qua tất cả các vòng. Không cập nhật currentInterviewRoundId.`);
         } else {
             console.warn(`⚠️ Không có vòng phỏng vấn để set cho application ${applicationId}`);
         }
 
         await application.update(updateData);
         console.log(`✅ Đã cập nhật application ${applicationId}: statusId=${newStatusId}, currentInterviewRoundId=${updateData.currentInterviewRoundId || 'NULL'}`);
-        
-        // Reload application to get updated data
-        await application.reload();
 
-        // Send email notification if status changed to approved (id=4), rejected (id=3), or interview prep (id=7)
+        // Không chờ email/test assignment để trả response (tránh timeout UI)
         if (newStatusId === 4 || newStatusId === 3 || newStatusId === 7) {
-            try {
-                // Get full application details for email
-                const fullApplication = await db.JobApplication.findOne({
-                    where: { id: applicationId },
-                    include: [
-                        {
-                            model: db.JobPosting,
-                            attributes: ['id', 'Tieude', 'Mota'],
-                            include: [
-                                {
-                                    model: db.Company,
-                                    attributes: ['id', 'Tencongty', 'Diachi', 'Website']
-                                }
-                            ]
-                        },
-                        {
-                            model: db.Record,
-                            include: [
-                                {
-                                    model: db.User,
-                                    attributes: ['id', 'Hoten', 'email', 'SDT']
-                                }
-                            ]
-                        }
-                    ]
-                });
+            setImmediate(async () => {
+                try {
+                    // Get full application details for email
+                    const fullApplication = await db.JobApplication.findOne({
+                        where: { id: applicationId },
+                        include: [
+                            {
+                                model: db.JobPosting,
+                                attributes: ['id', 'Tieude', 'Mota'],
+                                include: [
+                                    {
+                                        model: db.Company,
+                                        attributes: ['id', 'Tencongty', 'Diachi', 'Website']
+                                    }
+                                ]
+                            },
+                            {
+                                model: db.Record,
+                                include: [
+                                    {
+                                        model: db.User,
+                                        attributes: ['id', 'Hoten', 'email', 'SDT']
+                                    }
+                                ]
+                            }
+                        ]
+                    });
 
-                if (fullApplication && fullApplication.Record && fullApplication.Record.User) {
-                    const candidateInfo = {
-                        id: fullApplication.Record.User.id,
-                        email: fullApplication.Record.User.email,
-                        Hoten: fullApplication.Record.User.Hoten
-                    };
-                    const jobInfo = {
-                        id: fullApplication.JobPosting.id,
-                        Tieude: fullApplication.JobPosting.Tieude
-                    };
-                    const companyInfo = {
-                        Tencongty: fullApplication.JobPosting.Company.Tencongty
-                    };
+                    if (fullApplication && fullApplication.Record && fullApplication.Record.User) {
+                        const candidateInfo = {
+                            id: fullApplication.Record.User.id,
+                            email: fullApplication.Record.User.email,
+                            Hoten: fullApplication.Record.User.Hoten
+                        };
+                        const jobInfo = {
+                            id: fullApplication.JobPosting.id,
+                            Tieude: fullApplication.JobPosting.Tieude
+                        };
+                        const companyInfo = {
+                            Tencongty: fullApplication.JobPosting.Company.Tencongty
+                        };
 
-                    // Send appropriate email based on status
-                    if (newStatusId === 4) {
-                        await emailService.sendApprovalEmail(candidateInfo, jobInfo, companyInfo);
-                        console.log('✅ Đã gửi email thông báo duyệt đến:', candidateInfo.email);
+                        // Send appropriate email based on status
+                        if (newStatusId === 4) {
+                            await emailService.sendApprovalEmail(candidateInfo, jobInfo, companyInfo);
+                            console.log('✅ Đã gửi email thông báo duyệt đến:', candidateInfo.email);
 
-                        // Check test assignment
-                        const test = await db.Test.findOne({
-                            where: { jobPostingId: jobInfo.id, Trangthai: 1 }
-                        });
-
-                        if (test) {
-                            let submission = await db.TestSubmission.findOne({
+                            // Check test assignment: gán TẤT CẢ bài test đang hoạt động/còn hạn của JobPosting
+                            const now = new Date();
+                            const activeTests = await db.Test.findAll({
                                 where: {
-                                    testId: test.id,
-                                    userId: candidateInfo.id,
-                                    jobApplicationId: fullApplication.id
-                                }
+                                    jobPostingId: jobInfo.id,
+                                    Trangthai: 1,
+                                    [Op.and]: [
+                                        {
+                                            [Op.or]: [
+                                                { Ngaybatdau: null },
+                                                { Ngaybatdau: { [Op.lte]: now } }
+                                            ]
+                                        },
+                                        {
+                                            [Op.or]: [
+                                                { Ngayhethan: null },
+                                                { Ngayhethan: { [Op.gte]: now } }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                order: [['Ngaybatdau', 'ASC'], ['id', 'ASC']]
                             });
 
-                            let assignmentCreated = false;
-
-                            if (!submission) {
-                                submission = await db.TestSubmission.create({
-                                    testId: test.id,
-                                    userId: candidateInfo.id,
-                                    jobApplicationId: fullApplication.id,
-                                    Trangthai: 'chuabatdau',
-                                    Thoigianconlai: test.Thoigiantoida || 60,
-                                    Hanhethan: test.Ngayhethan || null
+                            for (const test of activeTests) {
+                                let submission = await db.TestSubmission.findOne({
+                                    where: {
+                                        testId: test.id,
+                                        userId: candidateInfo.id,
+                                        jobApplicationId: fullApplication.id
+                                    }
                                 });
-                                assignmentCreated = true;
-                            }
 
-                            if (assignmentCreated) {
-                                await emailService.sendTestAssignmentEmail(
-                                    candidateInfo,
-                                    jobInfo,
-                                    {
-                                        testTitle: test.Tieude,
-                                        duration: test.Thoigiantoida || 60,
-                                        deadline: test.Ngayhethan ? new Date(test.Ngayhethan).toLocaleDateString('vi-VN') : 'Không giới hạn'
-                                    },
-                                    companyInfo
+                                let assignmentCreated = false;
+
+                                if (!submission) {
+                                    submission = await db.TestSubmission.create({
+                                        testId: test.id,
+                                        userId: candidateInfo.id,
+                                        jobApplicationId: fullApplication.id,
+                                        Trangthai: 'chuabatdau',
+                                        Thoigianconlai: test.Thoigiantoida || 60,
+                                        Hanhethan: test.Ngayhethan || null
+                                    });
+                                    assignmentCreated = true;
+                                }
+
+                                if (assignmentCreated) {
+                                    await emailService.sendTestAssignmentEmail(
+                                        candidateInfo,
+                                        jobInfo,
+                                        {
+                                            testTitle: test.Tieude,
+                                            duration: test.Thoigiantoida || 60,
+                                            deadline: test.Ngayhethan ? new Date(test.Ngayhethan).toLocaleDateString('vi-VN') : 'Không giới hạn'
+                                        },
+                                        companyInfo
+                                    );
+                                    console.log('📨 Đã gán bài test và gửi email cho:', candidateInfo.email, ' | test:', test.Tieude);
+                                }
+                            }
+                        } else if (newStatusId === 3) {
+                            // Rejected - send rejection email
+                            await emailService.sendRejectionEmail(candidateInfo, jobInfo, companyInfo);
+                            console.log('✅ Đã gửi email thông báo từ chối đến:', candidateInfo.email);
+                        } else if (newStatusId === 7) {
+                            // Approve after meeting or from test/application review
+                            if (currentInterviewRound) {
+                                // This is approval after a meeting - check if there's a next round
+                                if (nextInterviewRound) {
+                                    // There's a next round - send "passed current round, prepare for next round" email
+                                    const currentRoundInfo = {
+                                        roundNumber: currentInterviewRound.roundNumber,
+                                        title: currentInterviewRound.title
+                                    };
+                                    
+                                    const nextRoundInfo = {
+                                        roundNumber: nextInterviewRound.roundNumber,
+                                        title: nextInterviewRound.title,
+                                        duration: nextInterviewRound.duration,
+                                        description: nextInterviewRound.description
+                                    };
+                                    
+                                    await emailService.sendInterviewPassEmail(
+                                        candidateInfo,
+                                        jobInfo,
+                                        companyInfo,
+                                        currentRoundInfo,
+                                        nextRoundInfo
+                                    );
+                                    console.log(`✅ Đã gửi email thông báo đã đậu vòng ${currentRoundInfo.roundNumber}, chuẩn bị vòng ${nextRoundInfo.roundNumber} đến:`, candidateInfo.email);
+                                } else {
+                                    // No next round - candidate passed all rounds, send hiring congratulations email
+                                    const lastRoundInfo = {
+                                        roundNumber: currentInterviewRound.roundNumber,
+                                        title: currentInterviewRound.title
+                                    };
+                                    
+                                    await emailService.sendHiringCongratulationsEmail(
+                                        candidateInfo,
+                                        jobInfo,
+                                        companyInfo,
+                                        lastRoundInfo
+                                    );
+                                    console.log('✅ Đã gửi email chúc mừng đã được tuyển đến:', candidateInfo.email);
+                                }
+                            } else if (nextInterviewRound) {
+                                // No meeting found - this is first time approval (from test/application review)
+                                // Send interview notification email for first round
+                                const interviewRoundInfo = {
+                                    roundNumber: nextInterviewRound.roundNumber,
+                                    title: nextInterviewRound.title,
+                                    duration: nextInterviewRound.duration,
+                                    description: nextInterviewRound.description
+                                };
+                                
+                                await emailService.sendInterviewNotificationEmail(
+                                    candidateInfo, 
+                                    jobInfo, 
+                                    companyInfo,
+                                    interviewRoundInfo
                                 );
-                                console.log('📨 Đã gán bài test và gửi email cho:', candidateInfo.email);
+                                console.log('✅ Đã gửi email thông báo phỏng vấn (vòng đầu tiên) đến:', candidateInfo.email);
+                            } else {
+                                // No interview rounds configured - fallback to interview notification
+                                await emailService.sendInterviewNotificationEmail(
+                                    candidateInfo, 
+                                    jobInfo, 
+                                    companyInfo,
+                                    null
+                                );
+                                console.log('✅ Đã gửi email thông báo phỏng vấn (không có thông tin vòng) đến:', candidateInfo.email);
                             }
                         }
-                    } else if (newStatusId === 3) {
-                        // Rejected - send rejection email
-                        await emailService.sendRejectionEmail(candidateInfo, jobInfo, companyInfo);
-                        console.log('✅ Đã gửi email thông báo từ chối đến:', candidateInfo.email);
-                    } else if (newStatusId === 7) {
-                        // Interview preparation - send interview notification email
-                        const interviewRoundInfo = firstInterviewRound ? {
-                            roundNumber: firstInterviewRound.roundNumber,
-                            title: firstInterviewRound.title,
-                            duration: firstInterviewRound.duration,
-                            description: firstInterviewRound.description
-                        } : null;
-                        
-                        await emailService.sendInterviewNotificationEmail(
-                            candidateInfo, 
-                            jobInfo, 
-                            companyInfo,
-                            interviewRoundInfo
-                        );
-                        console.log('✅ Đã gửi email thông báo phỏng vấn đến:', candidateInfo.email);
                     }
+                } catch (emailError) {
+                    // Log error but don't fail the status update
+                    console.error('⚠️ Không thể gửi email thông báo:', emailError);
                 }
-            } catch (emailError) {
-                // Log error but don't fail the status update
-                console.error('⚠️ Không thể gửi email thông báo:', emailError);
-            }
+            });
         }
 
         return {
             EM: 'Cập nhật trạng thái thành công!',
             EC: 0,
-            DT: application
+            DT: {
+                applicationId,
+                newStatusId,
+                currentInterviewRoundId: updateData.currentInterviewRoundId || null
+            }
         };
 
     } catch (error) {

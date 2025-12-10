@@ -315,8 +315,9 @@ const startTestForApplication = async (userId, applicationId) => {
             };
         }
 
-        // Chọn bài test còn hiệu lực của JobPosting (cho phép nhiều test nhưng chỉ gửi test active)
-        let test = null;
+        // Chọn bài test còn hiệu lực (có thể nhiều); ưu tiên test chưa làm hoặc đang làm
+        const now = new Date();
+        let targetSubmission = null;
         if (application.JobPosting?.id) {
             const tests = await db.Test.findAll({
                 where: { jobPostingId: application.JobPosting.id },
@@ -326,14 +327,52 @@ const startTestForApplication = async (userId, applicationId) => {
 
             for (const t of tests) {
                 const state = getTestAccessState(t);
-                if (state === 'active') {
-                    test = t;
-                    break;
+                if (state !== 'active') continue;
+
+                let submission = await db.TestSubmission.findOne({
+                    where: {
+                        testId: t.id,
+                        userId,
+                        jobApplicationId: application.id
+                    }
+                });
+
+                const duration = t.Thoigiantoida || 60;
+
+                if (!submission) {
+                    submission = await db.TestSubmission.create({
+                        testId: t.id,
+                        userId,
+                        jobApplicationId: application.id,
+                        Thoigianbatdau: now,
+                        Thoigianconlai: duration,
+                        Hanhethan: t.Ngayhethan || null,
+                        Trangthai: 'danglam'
+                    });
+                    targetSubmission = submission;
+                    break; // Tạo mới một bài và trả về
                 }
+
+                // Nếu đã nộp/chấm thì bỏ qua để tìm bài khác chưa làm/đang làm
+                if (submission.Trangthai === 'danop' || submission.Trangthai === 'dacham') {
+                    continue;
+                }
+
+                // Nếu chưa bắt đầu → chuyển sang đang làm và trả về
+                if (submission.Trangthai === 'chuabatdau') {
+                    await submission.update({
+                        Trangthai: 'danglam',
+                        Thoigianbatdau: now,
+                        Thoigianconlai: duration
+                    });
+                }
+
+                targetSubmission = submission;
+                break;
             }
         }
 
-        if (!test) {
+        if (!targetSubmission) {
             return {
                 EM: 'Không có bài test còn hiệu lực cho tin tuyển dụng này!',
                 EC: 4,
@@ -341,47 +380,8 @@ const startTestForApplication = async (userId, applicationId) => {
             };
         }
 
-        const duration = test.Thoigiantoida || 60;
-        const now = new Date();
-
-        let submission = await db.TestSubmission.findOne({
-            where: {
-                testId: test.id,
-                userId,
-                jobApplicationId: application.id
-            }
-        });
-
-        if (!submission) {
-            submission = await db.TestSubmission.create({
-                testId: test.id,
-                userId,
-                jobApplicationId: application.id,
-                Thoigianbatdau: now,
-                Thoigianconlai: duration,
-                Hanhethan: test.Ngayhethan || null,
-                Trangthai: 'danglam'
-            });
-        } else {
-            if (submission.Trangthai === 'dacham' || submission.Trangthai === 'danop') {
-                return {
-                    EM: 'Bạn đã hoàn thành bài test này!',
-                    EC: 5,
-                    DT: null
-                };
-            }
-
-            if (submission.Trangthai === 'chuabatdau') {
-                await submission.update({
-                    Trangthai: 'danglam',
-                    Thoigianbatdau: now,
-                    Thoigianconlai: duration
-                });
-            }
-        }
-
         const submissionDetail = await db.TestSubmission.findOne({
-            where: { id: submission.id },
+            where: { id: targetSubmission.id },
             include: [
                 {
                     model: db.Test,

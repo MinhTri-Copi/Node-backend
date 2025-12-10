@@ -8,10 +8,53 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const trainingDataService = require('./trainingDataService');
+
+const HUMAN_CSV_NAME = 'grading_data_human.csv';
+const LLM_CSV_NAME = 'grading_data.csv';
+
+/**
+ * Export dữ liệu đã HR duyệt ra CSV (dùng cho human model)
+ * @param {string} mlGraderPath
+ * @returns {Promise<string|null>} đường dẫn CSV hoặc null nếu không có dữ liệu
+ */
+const exportHumanTrainingCSV = async (mlGraderPath) => {
+    try {
+        const data = await trainingDataService.exportAnswersForCSV();
+
+        if (!data || data.length === 0) {
+            console.warn('⚠️ Không có dữ liệu human đã duyệt để xuất CSV.');
+            return null;
+        }
+
+        const targetPath = path.resolve(mlGraderPath, HUMAN_CSV_NAME);
+        const headers = ['questionId', 'questionText', 'correctAnswer', 'studentAnswer', 'maxScore', 'teacherScore'];
+        const lines = [headers.join(',')];
+
+        for (const row of data) {
+            const values = headers.map(h => {
+                const v = row[h] ?? '';
+                const str = String(v).replace(/"/g, '""');
+                if (str.includes(',') || str.includes('\n') || str.includes('\r')) {
+                    return `"${str}"`;
+                }
+                return str;
+            });
+            lines.push(values.join(','));
+        }
+
+        fs.writeFileSync(targetPath, lines.join('\n'), 'utf8');
+        console.log(`✅ Đã xuất CSV human: ${targetPath} (${data.length} dòng)`);
+        return targetPath;
+    } catch (err) {
+        console.warn('⚠️ Không thể export human training CSV:', err.message);
+        return null;
+    }
+};
 
 /**
  * Train ML model bằng cách gọi Python script
- * @param {string} csvPath - Đường dẫn đến grading_data.csv
+ * @param {string} csvPath - Đường dẫn đến grading_data.csv (LLM-generated)
  * @param {Object} options - { pythonPath, mlGraderPath, timeout }
  * @returns {Promise<Object>} { success, message, output, error }
  */
@@ -22,9 +65,9 @@ const trainMLModel = async (csvPath = null, options = {}) => {
         timeout = 300000 // 5 phút timeout
     } = options;
 
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         // Xác định đường dẫn CSV
-        const finalCsvPath = csvPath || path.resolve(mlGraderPath, 'grading_data.csv');
+        const finalCsvPath = csvPath || path.resolve(mlGraderPath, LLM_CSV_NAME);
         
         // Kiểm tra file CSV tồn tại
         if (!fs.existsSync(finalCsvPath)) {
@@ -50,6 +93,14 @@ const trainMLModel = async (csvPath = null, options = {}) => {
             return;
         }
 
+        // Export human CSV (không bắt buộc, chỉ để ưu tiên model human nếu có)
+        let humanCsvPath = null;
+        try {
+            humanCsvPath = await exportHumanTrainingCSV(mlGraderPath);
+        } catch (e) {
+            humanCsvPath = null;
+        }
+
         // Tự động detect Python từ venv hoặc dùng từ env/custom
         let finalPythonPath = pythonPath || process.env.PYTHON_PATH;
         
@@ -72,13 +123,24 @@ const trainMLModel = async (csvPath = null, options = {}) => {
         console.log(`🔄 Đang train ML model...`);
         console.log(`   Python: ${finalPythonPath}`);
         console.log(`   Script: ${scriptPath}`);
-        console.log(`   CSV: ${finalCsvPath}`);
+        console.log(`   LLM CSV: ${finalCsvPath}`);
+        if (humanCsvPath) {
+            console.log(`   Human CSV: ${humanCsvPath}`);
+        } else {
+            console.log('   Human CSV: (không có dữ liệu human hoặc export thất bại)');
+        }
 
         // Chạy Python script với encoding UTF-8 để hỗ trợ emoji/Unicode
         const env = { ...process.env };
         env.PYTHONIOENCODING = 'utf-8'; // Set encoding UTF-8 cho Python output
         
-        const pythonProcess = spawn(finalPythonPath, [scriptPath, finalCsvPath], {
+        // Build args: --llm-csv <path> [--human-csv <path>]
+        const args = [scriptPath, '--llm-csv', finalCsvPath];
+        if (humanCsvPath) {
+            args.push('--human-csv', humanCsvPath);
+        }
+
+        const pythonProcess = spawn(finalPythonPath, args, {
             cwd: mlGraderPath, // Chạy trong thư mục ml-grader
             stdio: ['ignore', 'pipe', 'pipe'], // Bỏ stdin, capture stdout và stderr
             env: env // Truyền environment với encoding UTF-8

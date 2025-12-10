@@ -382,6 +382,7 @@ const updateJobPosting = async (id, data) => {
 };
 
 // Delete job posting
+// Chỉ cho phép xóa khi trạng thái là "Ngừng tuyển" (TrangthaiId = 2)
 const deleteJobPosting = async (id) => {
     try {
         if (!id) {
@@ -402,6 +403,16 @@ const deleteJobPosting = async (id) => {
             };
         }
 
+        // Chỉ cho phép xóa khi trạng thái "Ngừng tuyển" (id = 2)
+        // Giả định mapping: 1 = Đang tuyển, 2 = Ngừng tuyển (theo migration)
+        if (job.TrangthaiId !== 2) {
+            return {
+                EM: 'Chỉ được xóa tin tuyển dụng ở trạng thái "Ngừng tuyển"!',
+                EC: 3,
+                DT: ''
+            };
+        }
+
         // Delete related majors first
         await db.MajorJobPosting.destroy({ where: { jobPostingId: id } });
         
@@ -414,6 +425,17 @@ const deleteJobPosting = async (id) => {
             DT: ''
         };
     } catch (e) {
+        // Trường hợp bị ràng buộc khóa ngoại (đã có đơn ứng tuyển tham chiếu)
+        if (
+            e.name === 'SequelizeForeignKeyConstraintError' ||
+            (e.parent && e.parent.code === 'ER_ROW_IS_REFERENCED_2')
+        ) {
+            return {
+                EM: 'Tin tuyển dụng đã có đơn ứng tuyển, không thể xóa. Vui lòng xử lý/hủy các đơn liên quan trước.',
+                EC: 4,
+                DT: ''
+            };
+        }
         console.log(e);
         return {
             EM: 'Lỗi khi xóa tin tuyển dụng!',

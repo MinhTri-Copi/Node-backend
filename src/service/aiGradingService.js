@@ -446,45 +446,10 @@ const gradeAnswersBatch = async (gradingItems) => {
             return multipleChoiceResults;
         }
 
-        // TỐI ƯU 4: NLP lọc trước - ngưỡng 0.88 (cân bằng giữa tốc độ và độ chính xác)
+        // Bỏ NLP auto-chấm: đẩy toàn bộ essayItems sang ML; LLM chỉ fallback khi ML lỗi
         const essayResults = [];
-        const itemsNeedingLLM = [];
-        let nlpFilteredCount = 0;
-
-        for (const item of essayItems) {
-            const similarityNLP = calculateSimilarityNLP(item.candidateAnswer, item.correctAnswer);
-            
-            if (similarityNLP >= 0.88) {
-                nlpFilteredCount++;
-                // Không cần LLM, dùng NLP trực tiếp (tiết kiệm ~40-60% thời gian)
-                let score = similarityNLP * item.maxScore;
-                score = roundToHalf(score);
-                const similarity = item.maxScore > 0 ? Math.max(0, Math.min(1, score / item.maxScore)) : 0;
-                const isCorrect = similarity >= 0.7;
-                const confidence = Math.min(0.95, similarity + 0.1);
-                const status = getSimilarityStatus(similarity);
-                
-                let comment = 'Đúng nội dung (NLP)';
-                if (similarity >= 0.9) comment = 'Đúng ý hoàn toàn, đầy đủ';
-                else if (similarity >= 0.7) comment = 'Đúng ý chính, đầy đủ';
-
-                essayResults.push({
-                    index: item.index,
-                    score,
-                    similarity_ai: similarity,
-                    isCorrect,
-                    confidence,
-                    comment,
-                    similarityStatus: status
-                });
-            } else {
-                // Cần LLM để chấm chính xác hơn
-                itemsNeedingLLM.push(item);
-            }
-        }
-
-        // Log số câu được lọc bởi NLP (TỐI ƯU: Log chi tiết để debug)
-        console.log(`📊 NLP lọc: ${nlpFilteredCount}/${essayItems.length} câu (similarity >= 0.88), cần chấm: ${itemsNeedingLLM.length} câu`);
+        const itemsNeedingLLM = [...essayItems];
+        console.log(`🧠 Đẩy ${itemsNeedingLLM.length}/${essayItems.length} câu tự luận sang ML (bỏ NLP filter)`);
 
         // PHA D - Bước D2: Dùng ML model thay vì LLM để chấm nhanh hơn
         if (itemsNeedingLLM.length > 0) {

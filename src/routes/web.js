@@ -99,6 +99,7 @@ const initWebRoutes = (app) => {
 
     // API HR Question Bank Management (Require JWT + HR Role)
     app.post("/api/hr/question-banks/upload", verifyJWT.verifyJWT, verifyJWT.requireRole(2), uploadQuestionBank.single('file'), questionBankController.uploadQuestionBank);
+    app.post("/api/hr/question-banks/:bankId/confirm-training", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.confirmAndGenerateTrainingData);
     app.get("/api/hr/question-banks", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBanks);
     app.get("/api/hr/question-banks/:bankId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankDetail);
     app.get("/api/hr/question-banks/items/search", verifyJWT.verifyJWT, verifyJWT.requireRole(2), questionBankController.getQuestionBankItems);

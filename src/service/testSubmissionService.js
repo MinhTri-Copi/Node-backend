@@ -1,4 +1,5 @@
 import db from '../models/index';
+const { Op } = db.Sequelize;
 
 /**
  * 1️⃣ Candidate submits test - save all answers
@@ -510,11 +511,14 @@ const getMyTestSubmissions = async (userId, filters = {}) => {
             whereClause.Trangthai = status;
         }
 
-        // Build include clause for filtering by job posting
+        const now = new Date();
+
+        // Build include clause for filtering by job posting (không chặn theo hạn sử dụng để vẫn hiển thị bài đã gửi)
         const testInclude = {
             model: db.Test,
             as: 'Test',
-            attributes: ['id', 'Tieude', 'Tongdiem', 'Ngaybatdau', 'Ngayhethan', 'jobPostingId'],
+            required: true, // ensure Test exists
+            attributes: ['id', 'Tieude', 'Tongdiem', 'Ngaybatdau', 'Ngayhethan', 'jobPostingId', 'Trangthai'],
             include: [{
                 model: db.JobPosting,
                 as: 'JobPosting',
@@ -526,10 +530,9 @@ const getMyTestSubmissions = async (userId, filters = {}) => {
             }]
         };
 
-        // Filter by job posting if specified
+        // Lọc theo jobPosting nếu có (không khóa theo thời gian/Trangthai)
         if (jobPostingId !== 'all') {
             testInclude.where = { jobPostingId: parseInt(jobPostingId) };
-            testInclude.required = true;
         }
 
         const { count, rows } = await db.TestSubmission.findAndCountAll({

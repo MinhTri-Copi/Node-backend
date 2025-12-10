@@ -404,7 +404,7 @@ const addMultipleQuestions = async (userId, testId, questions) => {
  * @param {number} limit - Số lượng mỗi trang
  * @returns {object} - Danh sách bài test
  */
-const getMyTests = async (userId, page = 1, limit = 10) => {
+const getMyTests = async (userId, page = 1, limit = 10, jobPostingId = null) => {
     try {
         if (!userId) {
             return {
@@ -440,12 +440,18 @@ const getMyTests = async (userId, page = 1, limit = 10) => {
 
         const offset = (page - 1) * limit;
 
+        // Điều kiện where cho JobPosting (lọc theo jobPostingId nếu có)
+        const jobPostingWhere = { recruiterId: recruiterIds };
+        if (jobPostingId) {
+            jobPostingWhere.id = jobPostingId;
+        }
+
         // Đếm tổng số bài test
         const totalRows = await db.Test.count({
             include: [{
                 model: db.JobPosting,
                 as: 'JobPosting',
-                where: { recruiterId: recruiterIds },
+                where: jobPostingWhere,
                 attributes: []
             }]
         });
@@ -456,7 +462,7 @@ const getMyTests = async (userId, page = 1, limit = 10) => {
                 {
                     model: db.JobPosting,
                     as: 'JobPosting',
-                    where: { recruiterId: recruiterIds },
+                    where: jobPostingWhere,
                     attributes: ['id', 'Tieude', 'companyId']
                 },
                 {

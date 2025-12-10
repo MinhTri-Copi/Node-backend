@@ -878,11 +878,476 @@ const sendMeetingInvitationEmail = async (candidateInfo, jobInfo, companyInfo, m
     }
 };
 
+/**
+ * Send email notification to candidate when they pass an interview round and move to next round
+ * @param {object} candidateInfo - Candidate information
+ * @param {object} jobInfo - Job posting information
+ * @param {object} companyInfo - Company information
+ * @param {object} currentRoundInfo - Current round information (roundNumber, title)
+ * @param {object} nextRoundInfo - Next round information (roundNumber, title, duration, description)
+ * @returns {Promise<boolean>} - Success status
+ */
+const sendInterviewPassEmail = async (candidateInfo, jobInfo, companyInfo, currentRoundInfo, nextRoundInfo) => {
+    try {
+        const { email, Hoten } = candidateInfo;
+        const { Tieude } = jobInfo;
+        const { Tencongty } = companyInfo;
+
+        const mailOptions = {
+            from: `"${Tencongty}" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `🎉 Chúc mừng! Bạn đã vượt qua vòng ${currentRoundInfo.roundNumber} - ${Tieude}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                        }
+                        .container {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            border-radius: 10px;
+                            padding: 30px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        }
+                        .content {
+                            background: white;
+                            border-radius: 8px;
+                            padding: 30px;
+                            margin-top: 20px;
+                        }
+                        .header {
+                            text-align: center;
+                            color: white;
+                            margin-bottom: 20px;
+                        }
+                        .header h1 {
+                            margin: 0;
+                            font-size: 28px;
+                            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+                        }
+                        .icon {
+                            font-size: 60px;
+                            margin-bottom: 10px;
+                        }
+                        .greeting {
+                            font-size: 18px;
+                            color: #2c3e50;
+                            margin-bottom: 20px;
+                        }
+                        .message {
+                            font-size: 16px;
+                            color: #555;
+                            margin-bottom: 25px;
+                            line-height: 1.8;
+                        }
+                        .job-info {
+                            background: #f8f9fa;
+                            border-left: 4px solid #667eea;
+                            padding: 15px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }
+                        .job-info strong {
+                            color: #667eea;
+                        }
+                        .success-box {
+                            background: #d4edda;
+                            border-left: 4px solid #28a745;
+                            padding: 20px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }
+                        .success-box h3 {
+                            color: #155724;
+                            margin-top: 0;
+                            font-size: 20px;
+                        }
+                        .next-round-info {
+                            background: #e8f5e9;
+                            border-radius: 8px;
+                            padding: 20px;
+                            margin: 20px 0;
+                            border: 2px solid #28a745;
+                        }
+                        .next-round-info h3 {
+                            color: #28a745;
+                            margin-top: 0;
+                            font-size: 20px;
+                        }
+                        .next-round-info p {
+                            margin: 8px 0;
+                            color: #555;
+                        }
+                        .highlight-box {
+                            background: #fff3cd;
+                            border-left: 4px solid #ffc107;
+                            padding: 15px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }
+                        .highlight-box strong {
+                            color: #856404;
+                        }
+                        .next-steps {
+                            background: #e8f4f8;
+                            border-radius: 8px;
+                            padding: 20px;
+                            margin: 20px 0;
+                        }
+                        .next-steps h3 {
+                            color: #2c3e50;
+                            margin-top: 0;
+                        }
+                        .next-steps ul {
+                            margin: 10px 0;
+                            padding-left: 20px;
+                        }
+                        .next-steps li {
+                            margin: 8px 0;
+                            color: #555;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 30px;
+                            padding-top: 20px;
+                            border-top: 2px solid #eee;
+                            color: #777;
+                            font-size: 14px;
+                        }
+                        .company-name {
+                            color: #667eea;
+                            font-weight: bold;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="icon">🎉</div>
+                            <h1>Chúc Mừng!</h1>
+                        </div>
+                        
+                        <div class="content">
+                            <p class="greeting">Xin chào <strong>${Hoten}</strong>,</p>
+                            
+                            <div class="success-box">
+                                <h3>✅ Bạn đã vượt qua vòng ${currentRoundInfo.roundNumber}!</h3>
+                                <p style="margin: 0; color: #155724;">
+                                    Chúng tôi rất ấn tượng với kết quả phỏng vấn của bạn ở vòng ${currentRoundInfo.roundNumber}${currentRoundInfo.title ? ` - ${currentRoundInfo.title}` : ''}.
+                                </p>
+                            </div>
+                            
+                            <p class="message">
+                                Chúng tôi rất vui mừng thông báo rằng bạn đã được chọn để tiếp tục vào <strong>vòng ${nextRoundInfo.roundNumber}</strong> cho vị trí:
+                            </p>
+                            
+                            <div class="job-info">
+                                <p style="margin: 0;"><strong>Vị trí ứng tuyển:</strong> ${Tieude}</p>
+                                <p style="margin: 0;"><strong>Công ty:</strong> ${Tencongty}</p>
+                            </div>
+
+                            <div class="next-round-info">
+                                <h3>📋 Thông tin vòng phỏng vấn tiếp theo</h3>
+                                <p><strong>Vòng:</strong> Vòng ${nextRoundInfo.roundNumber}</p>
+                                <p><strong>Tên vòng:</strong> ${nextRoundInfo.title}</p>
+                                ${nextRoundInfo.duration ? `<p><strong>Thời lượng dự kiến:</strong> ${nextRoundInfo.duration} phút</p>` : ''}
+                                ${nextRoundInfo.description ? `<p><strong>Nội dung:</strong> ${nextRoundInfo.description}</p>` : ''}
+                            </div>
+
+                            <div class="highlight-box">
+                                <p style="margin: 0;">
+                                    <strong>📧 Lưu ý quan trọng:</strong> HR sẽ liên hệ sớm với bạn qua email để sắp xếp lịch phỏng vấn cho vòng ${nextRoundInfo.roundNumber}. 
+                                    Vui lòng kiểm tra email thường xuyên để không bỏ lỡ thông tin quan trọng!
+                                </p>
+                            </div>
+                            
+                            <div class="next-steps">
+                                <h3>📌 Các bước tiếp theo:</h3>
+                                <ul>
+                                    <li><strong>Kiểm tra email thường xuyên</strong> - HR sẽ gửi thông tin chi tiết về lịch phỏng vấn vòng ${nextRoundInfo.roundNumber} qua email</li>
+                                    <li>Chuẩn bị các giấy tờ cần thiết (CV, bằng cấp, chứng chỉ...)</li>
+                                    <li>Tìm hiểu thêm về công ty và vị trí ứng tuyển</li>
+                                    <li>Chuẩn bị các câu hỏi bạn muốn hỏi nhà tuyển dụng</li>
+                                    <li>Đảm bảo kết nối internet ổn định nếu phỏng vấn online</li>
+                                </ul>
+                            </div>
+                            
+                            <p class="message">
+                                Chúng tôi đánh giá cao sự quan tâm và nỗ lực của bạn. Chúc bạn tiếp tục thành công ở vòng phỏng vấn tiếp theo!
+                            </p>
+                            
+                            <div class="footer">
+                                <p>Trân trọng,</p>
+                                <p class="company-name">${Tencongty}</p>
+                                <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                                    Email này được gửi tự động. Vui lòng không trả lời email này.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent successfully:', info.messageId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending interview pass email:', error);
+        return false;
+    }
+};
+
+/**
+ * Send email notification to candidate when they are hired (passed all interview rounds)
+ * @param {object} candidateInfo - Candidate information
+ * @param {object} jobInfo - Job posting information
+ * @param {object} companyInfo - Company information
+ * @param {object} lastRoundInfo - Last round information (roundNumber, title)
+ * @returns {Promise<boolean>} - Success status
+ */
+const sendHiringCongratulationsEmail = async (candidateInfo, jobInfo, companyInfo, lastRoundInfo) => {
+    try {
+        const { email, Hoten } = candidateInfo;
+        const { Tieude } = jobInfo;
+        const { Tencongty } = companyInfo;
+
+        const mailOptions = {
+            from: `"${Tencongty}" <${process.env.MAIL_USER}>`,
+            to: email,
+            subject: `🎊 Chúc mừng! Bạn đã được tuyển dụng - ${Tieude}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                        }
+                        .container {
+                            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                            border-radius: 10px;
+                            padding: 30px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        }
+                        .content {
+                            background: white;
+                            border-radius: 8px;
+                            padding: 30px;
+                            margin-top: 20px;
+                        }
+                        .header {
+                            text-align: center;
+                            color: white;
+                            margin-bottom: 20px;
+                        }
+                        .header h1 {
+                            margin: 0;
+                            font-size: 32px;
+                            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+                        }
+                        .icon {
+                            font-size: 80px;
+                            margin-bottom: 10px;
+                        }
+                        .greeting {
+                            font-size: 20px;
+                            color: #2c3e50;
+                            margin-bottom: 20px;
+                            font-weight: 600;
+                        }
+                        .message {
+                            font-size: 16px;
+                            color: #555;
+                            margin-bottom: 25px;
+                            line-height: 1.8;
+                        }
+                        .congratulations-box {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            border-radius: 8px;
+                            padding: 30px;
+                            margin: 20px 0;
+                            text-align: center;
+                        }
+                        .congratulations-box h2 {
+                            margin: 0 0 15px 0;
+                            font-size: 28px;
+                        }
+                        .congratulations-box p {
+                            margin: 10px 0;
+                            font-size: 18px;
+                        }
+                        .job-info {
+                            background: #f8f9fa;
+                            border-left: 4px solid #f5576c;
+                            padding: 15px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }
+                        .job-info strong {
+                            color: #f5576c;
+                        }
+                        .highlight-box {
+                            background: #fff3cd;
+                            border-left: 4px solid #ffc107;
+                            padding: 20px;
+                            margin: 20px 0;
+                            border-radius: 4px;
+                        }
+                        .highlight-box h3 {
+                            color: #856404;
+                            margin-top: 0;
+                            font-size: 18px;
+                        }
+                        .highlight-box p {
+                            margin: 8px 0;
+                            color: #856404;
+                        }
+                        .next-steps {
+                            background: #e8f4f8;
+                            border-radius: 8px;
+                            padding: 20px;
+                            margin: 20px 0;
+                        }
+                        .next-steps h3 {
+                            color: #2c3e50;
+                            margin-top: 0;
+                        }
+                        .next-steps ul {
+                            margin: 10px 0;
+                            padding-left: 20px;
+                        }
+                        .next-steps li {
+                            margin: 8px 0;
+                            color: #555;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 30px;
+                            padding-top: 20px;
+                            border-top: 2px solid #eee;
+                            color: #777;
+                            font-size: 14px;
+                        }
+                        .company-name {
+                            color: #f5576c;
+                            font-weight: bold;
+                            font-size: 18px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="icon">🎊</div>
+                            <h1>Chúc Mừng!</h1>
+                        </div>
+                        
+                        <div class="content">
+                            <p class="greeting">Xin chào <strong>${Hoten}</strong>,</p>
+                            
+                            <div class="congratulations-box">
+                                <h2>🎉 Bạn đã được tuyển dụng!</h2>
+                                <p>
+                                    Chúng tôi rất vui mừng thông báo rằng bạn đã vượt qua tất cả các vòng phỏng vấn 
+                                    và được chọn cho vị trí:
+                                </p>
+                                <p style="font-size: 22px; font-weight: 600; margin-top: 15px;">
+                                    ${Tieude}
+                                </p>
+                                <p style="font-size: 16px; margin-top: 10px;">
+                                    tại <strong>${Tencongty}</strong>
+                                </p>
+                            </div>
+                            
+                            <p class="message">
+                                Kết quả này là minh chứng cho năng lực, kinh nghiệm và sự phù hợp của bạn với vị trí này. 
+                                Chúng tôi tin rằng bạn sẽ là một thành viên tuyệt vời trong đội ngũ của chúng tôi.
+                            </p>
+                            
+                            <div class="job-info">
+                                <p style="margin: 0;"><strong>Vị trí:</strong> ${Tieude}</p>
+                                <p style="margin: 0;"><strong>Công ty:</strong> ${Tencongty}</p>
+                                ${lastRoundInfo ? `<p style="margin: 0;"><strong>Vòng phỏng vấn cuối:</strong> Vòng ${lastRoundInfo.roundNumber}${lastRoundInfo.title ? ` - ${lastRoundInfo.title}` : ''}</p>` : ''}
+                            </div>
+
+                            <div class="highlight-box">
+                                <h3>📧 Thông tin quan trọng</h3>
+                                <p>
+                                    HR sẽ liên hệ với bạn trong thời gian sớm nhất qua email để thông báo chi tiết về:
+                                </p>
+                                <ul style="margin: 10px 0; padding-left: 20px; color: #856404;">
+                                    <li>Thời gian và địa điểm làm việc</li>
+                                    <li>Quy trình onboarding</li>
+                                    <li>Các giấy tờ cần chuẩn bị</li>
+                                    <li>Thông tin về mức lương và phúc lợi</li>
+                                </ul>
+                                <p style="margin-top: 15px; font-weight: 600;">
+                                    Vui lòng kiểm tra email thường xuyên để không bỏ lỡ thông tin quan trọng!
+                                </p>
+                            </div>
+                            
+                            <div class="next-steps">
+                                <h3>📌 Các bước tiếp theo:</h3>
+                                <ul>
+                                    <li><strong>Kiểm tra email thường xuyên</strong> - HR sẽ gửi thông tin chi tiết về quy trình onboarding</li>
+                                    <li>Chuẩn bị các giấy tờ cần thiết (CMND/CCCD, bằng cấp, chứng chỉ, sơ yếu lý lịch...)</li>
+                                    <li>Thông báo cho công ty hiện tại (nếu có) về quyết định nghỉ việc</li>
+                                    <li>Tìm hiểu thêm về công ty, văn hóa làm việc và đội ngũ</li>
+                                    <li>Chuẩn bị tinh thần và sẵn sàng cho ngày đầu tiên đi làm</li>
+                                </ul>
+                            </div>
+                            
+                            <p class="message">
+                                Một lần nữa, chúng tôi xin chúc mừng bạn và rất mong được chào đón bạn vào đội ngũ của chúng tôi!
+                            </p>
+                            
+                            <div class="footer">
+                                <p>Trân trọng,</p>
+                                <p class="company-name">${Tencongty}</p>
+                                <p style="margin-top: 20px; font-size: 12px; color: #999;">
+                                    Email này được gửi tự động. Vui lòng không trả lời email này.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email sent successfully:', info.messageId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error sending hiring congratulations email:', error);
+        return false;
+    }
+};
+
 export default {
     sendApprovalEmail,
     sendRejectionEmail,
     sendTestAssignmentEmail,
     sendInterviewNotificationEmail,
-    sendMeetingInvitationEmail
+    sendMeetingInvitationEmail,
+    sendInterviewPassEmail,
+    sendHiringCongratulationsEmail
 };
 
