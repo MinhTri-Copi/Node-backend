@@ -1326,6 +1326,169 @@ const confirmAndGenerateTrainingData = async (userId, bankId, options = {}) => {
     }
 };
 
+/**
+ * Lấy training status của bộ đề để hiển thị timeline
+ */
+const getTrainingStatus = async (userId, bankId) => {
+    try {
+        if (!userId || !bankId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const questionBank = await db.QuestionBank.findOne({
+            where: { id: bankId, userId },
+            include: [{
+                model: db.QuestionBankItem,
+                as: 'Items',
+                attributes: ['id']
+            }]
+        });
+
+        if (!questionBank) {
+            return {
+                EM: 'Không tìm thấy bộ đề!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        const mlTrainingService = require('./mlTrainingService');
+
+        // Parse metadata
+        let metadata = {};
+        try {
+            metadata = questionBank.Metadata && typeof questionBank.Metadata === 'string'
+                ? JSON.parse(questionBank.Metadata)
+                : (questionBank.Metadata || {});
+        } catch (e) {
+            metadata = {};
+        }
+
+        // Kiểm tra các mốc timeline
+        const timeline = [];
+        const now = new Date();
+
+        // 1. Upload bộ đề thành công
+        timeline.push({
+            step: 1,
+            title: 'Upload bộ đề thành công',
+            description: `Bộ đề "${questionBank.Ten}" đã được upload`,
+            status: 'finish',
+            icon: 'upload',
+            timestamp: questionBank.createdAt
+        });
+
+        // 2. Phân loại câu hỏi (LLM classification)
+        const hasItems = questionBank.Items && questionBank.Items.length > 0;
+        const classificationTime = metadata.classifiedAt || (hasItems ? questionBank.updatedAt : null);
+        timeline.push({
+            step: 2,
+            title: 'Phân loại câu hỏi',
+            description: hasItems 
+                ? `Đã phân loại ${questionBank.Items.length} câu hỏi bằng LLM`
+                : 'Đang phân loại câu hỏi...',
+            status: hasItems ? 'finish' : 'process',
+            icon: 'tags',
+            timestamp: classificationTime
+        });
+
+        // 3. Sinh training data
+        const confirmedTraining = metadata.confirmedTraining === true;
+        const csvPath = path.resolve(__dirname, '../../../ml-grader/grading_data.csv');
+        let hasTrainingData = false;
+        let trainingDataCount = 0;
+
+        if (fs.existsSync(csvPath)) {
+            try {
+                const csvContent = fs.readFileSync(csvPath, 'utf8');
+                const lines = csvContent.split('\n').filter(line => line.trim());
+                // Kiểm tra xem có questionId nào thuộc bank này không
+                // (giả sử questionId trong CSV là questionBankItemId)
+                if (hasItems) {
+                    const itemIds = questionBank.Items.map(item => item.id.toString());
+                    for (let i = 1; i < lines.length; i++) { // Skip header
+                        const cols = lines[i].split(',');
+                        if (cols.length > 0 && itemIds.includes(cols[0])) {
+                            hasTrainingData = true;
+                            trainingDataCount++;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Error reading CSV:', e.message);
+            }
+        }
+
+        const trainingDataTime = metadata.trainingDataGeneratedAt || (hasTrainingData ? questionBank.updatedAt : null);
+        timeline.push({
+            step: 3,
+            title: 'Sinh training data',
+            description: confirmedTraining
+                ? (hasTrainingData 
+                    ? `Đã sinh ${trainingDataCount} mẫu training data bằng LLM`
+                    : 'Đang sinh training data...')
+                : 'Chưa xác nhận sinh training data',
+            status: hasTrainingData ? 'finish' : (confirmedTraining ? 'process' : 'wait'),
+            icon: 'database',
+            timestamp: trainingDataTime
+        });
+
+        // 4. Train ML model
+        const mlModelStatus = mlTrainingService.checkMLModelStatus();
+        const autoTrainEnabled = process.env.AUTO_TRAIN_ML_MODEL === 'true';
+        const trainingInProgress = metadata.trainingInProgress === true;
+
+        console.log('📊 Timeline Step 4 - ML Model Status:', {
+            bankId: questionBank.id,
+            bankName: questionBank.Ten,
+            mlModelStatus,
+            autoTrainEnabled,
+            trainingInProgress,
+            isTrained: mlModelStatus.isTrained
+        });
+
+        timeline.push({
+            step: 4,
+            title: 'Train ML model',
+            description: mlModelStatus.isTrained
+                ? 'ML model đã được train thành công'
+                : (trainingInProgress || (autoTrainEnabled && confirmedTraining && !mlModelStatus.isTrained)
+                    ? 'Đang train ML model...'
+                    : 'Chưa train ML model'),
+            status: mlModelStatus.isTrained ? 'finish' : (trainingInProgress ? 'process' : 'wait'),
+            icon: 'robot',
+            timestamp: mlModelStatus.isTrained ? (metadata.modelTrainedAt || questionBank.updatedAt) : null
+        });
+
+        return {
+            EM: 'Lấy training status thành công!',
+            EC: 0,
+            DT: {
+                bankId: questionBank.id,
+                bankName: questionBank.Ten,
+                timeline,
+                summary: {
+                    totalSteps: timeline.length,
+                    completedSteps: timeline.filter(t => t.status === 'finish').length,
+                    currentStep: timeline.findIndex(t => t.status === 'process') + 1 || timeline.length,
+                    isComplete: timeline.every(t => t.status === 'finish')
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Error in getTrainingStatus:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy training status!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 export default {
     uploadQuestionBank,
     getQuestionBanks,
@@ -1333,6 +1496,7 @@ export default {
     deleteQuestionBank,
     updateQuestionBankItem,
     getQuestionBankItems,
-    confirmAndGenerateTrainingData
+    confirmAndGenerateTrainingData,
+    getTrainingStatus
 };
 

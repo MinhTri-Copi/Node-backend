@@ -260,6 +260,42 @@ const confirmAndGenerateTrainingData = async (req, res) => {
     }
 };
 
+/**
+ * Lấy training status của bộ đề để hiển thị timeline
+ */
+const getTrainingStatus = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        const { bankId } = req.params;
+
+        if (!userId || !bankId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = await questionBankService.getTrainingStatus(
+            parseInt(userId),
+            parseInt(bankId)
+        );
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getTrainingStatus controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 export default {
     uploadQuestionBank,
     getQuestionBanks,
@@ -267,6 +303,7 @@ export default {
     deleteQuestionBank,
     updateQuestionBankItem,
     getQuestionBankItems,
-    confirmAndGenerateTrainingData
+    confirmAndGenerateTrainingData,
+    getTrainingStatus
 };
 

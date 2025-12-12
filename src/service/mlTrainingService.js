@@ -258,7 +258,7 @@ const trainMLModelBackground = async (csvPath = null, options = {}) => {
  * @returns {Object} { isTrained, modelPath, embedderPath }
  */
 const checkMLModelStatus = (mlGraderPath = null) => {
-    const finalPath = mlGraderPath || path.resolve(__dirname, '../../ml-grader');
+    const finalPath = mlGraderPath || path.resolve(__dirname, '../../../ml-grader');
     
     const modelPath = path.resolve(finalPath, 'grading_reg.joblib');
     const embedderPath = path.resolve(finalPath, 'embedder');
@@ -266,13 +266,24 @@ const checkMLModelStatus = (mlGraderPath = null) => {
     const modelExists = fs.existsSync(modelPath);
     const embedderExists = fs.existsSync(embedderPath) && fs.statSync(embedderPath).isDirectory();
     
-    return {
+    const result = {
         isTrained: modelExists && embedderExists,
         modelPath: modelExists ? modelPath : null,
         embedderPath: embedderExists ? embedderPath : null,
         modelExists,
         embedderExists
     };
+    
+    console.log('🔍 checkMLModelStatus:', {
+        finalPath,
+        modelPath,
+        modelExists,
+        embedderPath,
+        embedderExists,
+        isTrained: result.isTrained
+    });
+    
+    return result;
 };
 
 module.exports = {
