@@ -1438,30 +1438,66 @@ const getTrainingStatus = async (userId, bankId) => {
         });
 
         // 4. Train ML model
+        // Logic: Step 4 chỉ finish nếu:
+        // - Step 3 đã finish (có training data)
+        // - Model đã được train
+        // - Model được train SAU KHI training data được sinh (kiểm tra thời gian file model)
         const mlModelStatus = mlTrainingService.checkMLModelStatus();
         const autoTrainEnabled = process.env.AUTO_TRAIN_ML_MODEL === 'true';
         const trainingInProgress = metadata.trainingInProgress === true;
+        
+        // Step 4 chỉ có thể finish nếu step 3 đã finish (có training data)
+        const step3Finished = hasTrainingData;
+        
+        // Kiểm tra thời gian file model được tạo/modified
+        let modelTrainedAfterData = false;
+        if (step3Finished && mlModelStatus.isTrained && mlModelStatus.modelPath) {
+            try {
+                const modelStats = fs.statSync(mlModelStatus.modelPath);
+                const modelModifiedTime = new Date(modelStats.mtime);
+                const trainingDataDate = trainingDataTime ? new Date(trainingDataTime) : null;
+                
+                // Model được train SAU KHI training data được sinh
+                if (trainingDataDate && modelModifiedTime > trainingDataDate) {
+                    modelTrainedAfterData = true;
+                }
+            } catch (e) {
+                console.warn('⚠️ Không thể kiểm tra thời gian file model:', e.message);
+            }
+        }
+        
+        // Step 4 chỉ finish nếu: step 3 finish + model đã train + model được train SAU KHI có training data
+        const step4CanFinish = step3Finished && mlModelStatus.isTrained && modelTrainedAfterData;
+        
+        // Step 4 là process nếu: step 3 finish + (đang train hoặc model chưa train hoặc model train TRƯỚC training data)
+        const step4IsProcess = step3Finished && !step4CanFinish && (trainingInProgress || autoTrainEnabled || mlModelStatus.isTrained);
 
         console.log('📊 Timeline Step 4 - ML Model Status:', {
             bankId: questionBank.id,
             bankName: questionBank.Ten,
-            mlModelStatus,
-            autoTrainEnabled,
-            trainingInProgress,
-            isTrained: mlModelStatus.isTrained
+            step3Finished,
+            hasTrainingData,
+            trainingDataTime,
+            mlModelStatus: mlModelStatus.isTrained,
+            modelTrainedAfterData,
+            step4CanFinish,
+            step4IsProcess,
+            trainingInProgress
         });
 
         timeline.push({
             step: 4,
             title: 'Train ML model',
-            description: mlModelStatus.isTrained
+            description: step4CanFinish
                 ? 'ML model đã được train thành công'
-                : (trainingInProgress || (autoTrainEnabled && confirmedTraining && !mlModelStatus.isTrained)
+                : (step4IsProcess
                     ? 'Đang train ML model...'
-                    : 'Chưa train ML model'),
-            status: mlModelStatus.isTrained ? 'finish' : (trainingInProgress ? 'process' : 'wait'),
+                    : step3Finished
+                        ? 'Chờ train ML model...'
+                        : 'Chưa có training data để train model'),
+            status: step4CanFinish ? 'finish' : (step4IsProcess ? 'process' : 'wait'),
             icon: 'robot',
-            timestamp: mlModelStatus.isTrained ? (metadata.modelTrainedAt || questionBank.updatedAt) : null
+            timestamp: step4CanFinish ? (metadata.modelTrainedAt || questionBank.updatedAt) : null
         });
 
         return {
