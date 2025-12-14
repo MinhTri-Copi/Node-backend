@@ -153,6 +153,14 @@ const initWebRoutes = (app) => {
     app.get("/api/hr/meetings/candidates", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getCandidatesByJobPosting);
     app.get("/api/hr/meetings/latest", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getLatestMeetingByJobPosting);
 
+    // API Application Documents (Require JWT)
+    const applicationDocumentController = require('../controller/applicationDocumentController');
+    app.get("/api/applications/:applicationId/documents", verifyJWT.verifyJWT, applicationDocumentController.getDocumentsByApplication);
+    app.get("/api/applications/:applicationId/documents/check", verifyJWT.verifyJWT, applicationDocumentController.checkCanSubmitDocuments);
+    app.post("/api/applications/:applicationId/documents", verifyJWT.verifyJWT, applicationDocumentController.createOrUpdateDocument);
+    app.put("/api/documents/:documentId/status", verifyJWT.verifyJWT, verifyJWT.requireRole(2), applicationDocumentController.updateDocumentStatus);
+    app.delete("/api/documents/:documentId", verifyJWT.verifyJWT, applicationDocumentController.deleteDocument);
+
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
     app.get("/api/formats", utilityController.getAllFormats);

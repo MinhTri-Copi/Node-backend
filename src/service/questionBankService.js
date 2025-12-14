@@ -1472,19 +1472,6 @@ const getTrainingStatus = async (userId, bankId) => {
         // Step 4 là process nếu: step 3 finish + (đang train hoặc model chưa train hoặc model train TRƯỚC training data)
         const step4IsProcess = step3Finished && !step4CanFinish && (trainingInProgress || autoTrainEnabled || mlModelStatus.isTrained);
 
-        console.log('📊 Timeline Step 4 - ML Model Status:', {
-            bankId: questionBank.id,
-            bankName: questionBank.Ten,
-            step3Finished,
-            hasTrainingData,
-            trainingDataTime,
-            mlModelStatus: mlModelStatus.isTrained,
-            modelTrainedAfterData,
-            step4CanFinish,
-            step4IsProcess,
-            trainingInProgress
-        });
-
         timeline.push({
             step: 4,
             title: 'Train ML model',

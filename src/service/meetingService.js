@@ -37,47 +37,58 @@ const getMeetingsForHr = async (userId, filters = {}) => {
             whereClause.jobApplicationId = filters.jobApplicationId;
         }
 
-        // Get meetings
-        const meetings = await db.Meeting.findAll({
-            where: whereClause,
+        // Build include clause with job posting filter
+        const jobApplicationInclude = {
+            model: db.JobApplication,
+            as: 'JobApplication',
+            attributes: ['id'],
             include: [
                 {
-                    model: db.InterviewRound,
-                    as: 'InterviewRound',
-                    attributes: ['id', 'roundNumber', 'title', 'duration']
-                },
-                {
-                    model: db.JobApplication,
-                    as: 'JobApplication',
-                    attributes: ['id'],
+                    model: db.JobPosting,
+                    attributes: ['id', 'Tieude'],
                     include: [
                         {
-                            model: db.JobPosting,
-                            attributes: ['id', 'Tieude'],
-                            include: [
-                                {
-                                    model: db.Company,
-                                    attributes: ['id', 'Tencongty']
-                                }
-                            ]
-                        },
-                        {
-                            model: db.Record,
-                            include: [
-                                {
-                                    model: db.User,
-                                    attributes: ['id', 'Hoten', 'email', 'SDT']
-                                }
-                            ]
+                            model: db.Company,
+                            attributes: ['id', 'Tencongty']
                         }
                     ]
                 },
                 {
-                    model: db.User,
-                    as: 'Candidate',
-                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                    model: db.Record,
+                    include: [
+                        {
+                            model: db.User,
+                            attributes: ['id', 'Hoten', 'email', 'SDT']
+                        }
+                    ]
                 }
-            ],
+            ]
+        };
+
+        // Add where clause and required flag if filtering by job posting
+        if (filters.jobPostingId) {
+            jobApplicationInclude.where = { jobPostingId: filters.jobPostingId };
+            jobApplicationInclude.required = true; // INNER JOIN when filtering
+        }
+
+        const includeClause = [
+            {
+                model: db.InterviewRound,
+                as: 'InterviewRound',
+                attributes: ['id', 'roundNumber', 'title', 'duration']
+            },
+            jobApplicationInclude,
+            {
+                model: db.User,
+                as: 'Candidate',
+                attributes: ['id', 'Hoten', 'email', 'SDT']
+            }
+        ];
+
+        // Get meetings
+        const meetings = await db.Meeting.findAll({
+            where: whereClause,
+            include: includeClause,
             order: [['scheduledAt', 'DESC']]
         });
 

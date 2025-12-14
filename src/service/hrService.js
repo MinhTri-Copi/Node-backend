@@ -1313,19 +1313,20 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
         };
 
         // If there's a next round, set it as currentInterviewRoundId
-        // If no next round (passed all rounds), keep currentInterviewRoundId as is (or set to null if needed)
+        // If no next round (passed all rounds), update status to 2 (Đã được nhận) instead of 7
         if (nextInterviewRound) {
             updateData.currentInterviewRoundId = nextInterviewRound.id;
             console.log(`📝 Sẽ cập nhật currentInterviewRoundId = ${nextInterviewRound.id} (vòng ${nextInterviewRound.roundNumber}) cho application ${applicationId}`);
         } else if (newStatusId === 7 && currentInterviewRound) {
-            // Passed all rounds, no next round - might want to set a "hired" status or keep current
-            console.log(`ℹ️ Ứng viên đã vượt qua tất cả các vòng. Không cập nhật currentInterviewRoundId.`);
+            // Passed all rounds, no next round - update status to 2 (Đã được nhận) instead of 7
+            updateData.applicationStatusId = 2; // Đã được nhận
+            console.log(`✅ Ứng viên đã vượt qua tất cả các vòng. Cập nhật statusId=2 (Đã được nhận) cho application ${applicationId}`);
         } else {
             console.warn(`⚠️ Không có vòng phỏng vấn để set cho application ${applicationId}`);
         }
 
         await application.update(updateData);
-        console.log(`✅ Đã cập nhật application ${applicationId}: statusId=${newStatusId}, currentInterviewRoundId=${updateData.currentInterviewRoundId || 'NULL'}`);
+        console.log(`✅ Đã cập nhật application ${applicationId}: statusId=${updateData.applicationStatusId}, currentInterviewRoundId=${updateData.currentInterviewRoundId || 'NULL'}`);
 
         // Không chờ email/test assignment để trả response (tránh timeout UI)
         if (newStatusId === 4 || newStatusId === 3 || newStatusId === 7) {
@@ -1469,6 +1470,7 @@ const updateApplicationStatus = async (userId, applicationId, newStatusId) => {
                                     console.log(`✅ Đã gửi email thông báo đã đậu vòng ${currentRoundInfo.roundNumber}, chuẩn bị vòng ${nextRoundInfo.roundNumber} đến:`, candidateInfo.email);
                                 } else {
                                     // No next round - candidate passed all rounds, send hiring congratulations email
+                                    // Note: Status đã được cập nhật thành 2 ở phần update chính phía trên
                                     const lastRoundInfo = {
                                         roundNumber: currentInterviewRound.roundNumber,
                                         title: currentInterviewRound.title

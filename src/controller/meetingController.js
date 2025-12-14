@@ -3,7 +3,7 @@ const meetingService = require('../service/meetingService');
 const getMeetingsForHr = async (req, res) => {
     try {
         const { userId } = req.query;
-        const { status, jobApplicationId } = req.query;
+        const { status, jobApplicationId, jobPostingId } = req.query;
 
         if (!userId) {
             return res.status(400).json({
@@ -19,6 +19,9 @@ const getMeetingsForHr = async (req, res) => {
         }
         if (jobApplicationId) {
             filters.jobApplicationId = jobApplicationId;
+        }
+        if (jobPostingId) {
+            filters.jobPostingId = parseInt(jobPostingId);
         }
 
         const data = await meetingService.getMeetingsForHr(userId, filters);

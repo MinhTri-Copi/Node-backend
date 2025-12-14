@@ -274,15 +274,6 @@ const checkMLModelStatus = (mlGraderPath = null) => {
         embedderExists
     };
     
-    console.log('🔍 checkMLModelStatus:', {
-        finalPath,
-        modelPath,
-        modelExists,
-        embedderPath,
-        embedderExists,
-        isTrained: result.isTrained
-    });
-    
     return result;
 };
 

@@ -33,6 +33,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'currentInterviewRoundId',
         as: 'CurrentInterviewRound'
       });
+      
+      JobApplication.hasMany(models.ApplicationDocument, {
+        foreignKey: 'jobApplicationId',
+        as: 'ApplicationDocuments'
+      });
     }
   }
   JobApplication.init({
