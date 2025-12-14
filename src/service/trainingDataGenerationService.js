@@ -81,6 +81,61 @@ const labelToRatio = (label) => {
 };
 
 /**
+ * Tự động gán điểm dựa trên label (KHÔNG cho LLM chấm)
+ * LLM chỉ sinh answer + label, hệ thống tự gán score bằng RULE CỐ ĐỊNH
+ * 
+ * ⚠️ QUAN TRỌNG: KHÔNG dùng Math.random()
+ * Lý do: Tránh cùng 1 câu có nhiều điểm khác nhau (gây nhiễu ML)
+ * 
+ * Rule CẢI TIẾN (đa dạng hơn để ML học tốt hơn):
+ * - correct: 85-95% maxScore (câu đúng hoàn toàn, cho phép paraphrase)
+ * - good: 75-85% maxScore (đúng hầu hết ý, thiếu chi tiết nhỏ không quan trọng)
+ * - partial: 50-70% maxScore (đúng một phần, thiếu ý quan trọng)
+ * - wrong: 15-30% maxScore (sai hoặc lệch nghĩa nhưng vẫn liên quan)
+ * - garbage: 0% (lạc đề hoàn toàn)
+ * 
+ * Sử dụng variant để tạo 3 mức điểm khác nhau cho mỗi label
+ * Giúp ML học được RANGE thay vì chỉ 1 điểm cố định
+ */
+const labelToScore = (label, maxScore, variant = 0) => {
+    const ms = maxScore || 10;
+    const lbl = (label || '').toLowerCase();
+    
+    // Với mỗi label, trả về 1 trong 3 mức điểm tuỳ variant
+    switch (lbl) {
+        case 'correct':
+        case 'đúng':
+        case 'correct_paraphrase_strong':
+        case 'correct_paraphrase_light':
+            // 85%, 90%, 95% tuỳ variant (0,1,2)
+            return [0.85, 0.90, 0.95][variant % 3] * ms;
+        case 'good':
+        case 'tốt':
+            // 75%, 80%, 85%
+            return [0.75, 0.80, 0.85][variant % 3] * ms;
+        case 'partial':
+        case 'đúng một phần':
+        case 'đúng phần':
+        case 'partial_medium':
+        case 'partial_low':
+            // 50%, 60%, 70%
+            return [0.50, 0.60, 0.70][variant % 3] * ms;
+        case 'wrong':
+        case 'sai':
+            // 15%, 22%, 30%
+            return [0.15, 0.22, 0.30][variant % 3] * ms;
+        case 'garbage':
+        case 'rác':
+        case 'rac':
+        case 'garbage_offtopic':
+        case 'garbage_nonsense':
+            return 0; // 0%
+        default:
+            return 0; // Phòng lỗi
+    }
+};
+
+/**
  * Làm tròn điểm về 0.5
  */
 const roundToHalf = (score) => Math.round(score * 2) / 2;
@@ -91,91 +146,145 @@ const roundToHalf = (score) => Math.round(score * 2) / 2;
  * @returns {Array} Array of training samples
  */
 const generateTrainingSamplesForQuestion = async (question) => {
-    try {
-        const prompt = `Bạn là giáo viên chấm bài. Nhiệm vụ: sinh 4 câu trả lời mẫu của học viên VÀ chấm điểm dựa trên SO SÁNH với đáp án mẫu.
+    const maxAttempts = 3;
+    let lastError = null;
 
-QUY TRÌNH CHẤM ĐIỂM:
-1. So sánh câu trả lời của học viên với đáp án mẫu (correctAnswer)
-2. Dựa trên mức độ giống/khác biệt để cho điểm
-3. Điểm số phải phản ánh chính xác mức độ đúng/sai so với đáp án mẫu
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            // Random seed để tạo sự đa dạng mỗi lần retry
+            const randomSeed = Math.floor(Math.random() * 10000) + attempt * 1000;
+            
+            const prompt = `Bạn là giáo viên. Nhiệm vụ: CHỈ SINH 8 CÂU TRẢ LỜI MẪU của học viên với độ đa dạng CAO.
 
-4 LOẠI CÂU TRẢ LỜI CẦN SINH:
-1) Đúng hoàn toàn: So sánh với đáp án mẫu → giống hoàn toàn → cho điểm 80-100% maxScore
-2) Đúng một phần: So sánh với đáp án mẫu → giống một phần → cho điểm 40-70% maxScore  
-3) Sai: So sánh với đáp án mẫu → khác biệt nhiều → cho điểm 0-30% maxScore
-4) Rác: Không liên quan đến câu hỏi → cho điểm 0
+8 LOẠI CÂU TRẢ LỜI CẦN SINH (mỗi loại PHẢI KHÁC NHAU về từ ngữ và nội dung):
 
-QUAN TRỌNG:
-- Điểm số (score) PHẢI dựa trên so sánh câu trả lời với đáp án mẫu (correctAnswer)
-- KHÔNG được cho điểm dựa trên label, mà phải so sánh thực tế
-- Mỗi câu trả lời phải có điểm số cụ thể (0 đến maxScore)
+1) correct_paraphrase_strong: Trả lời đúng đầy đủ, PARAPHRASE MẠNH
+   - Dùng từ đồng nghĩa hoàn toàn khác
+   - Ví dụ: "bảo vệ" → "che chở", "phương pháp" → "giải pháp"
 
-Format JSON trả về:
+2) correct_paraphrase_light: Trả lời đúng đầy đủ, PARAPHRASE NHẸ
+   - Giữ thuật ngữ chính, đổi cấu trúc câu
+   - Ví dụ: "là tập hợp" → "bao gồm", "nhằm" → "với mục đích"
+
+3) good: Trả lời đúng HẦU HẾT ý, thiếu 1 chi tiết NHỎ không quan trọng
+   - Ví dụ: Đúng định nghĩa + mục tiêu, nhưng thiếu ví dụ minh họa
+
+4) partial_medium: Trả lời đúng 50-60% ý chính
+   - Thiếu vài phần QUAN TRỌNG
+   
+5) partial_low: Trả lời đúng chỉ 30-40% ý chính
+   - Thiếu RẤT NHIỀU phần quan trọng
+
+6) wrong: Hiểu SAI khái niệm, lệch nghĩa
+   - Vẫn liên quan chủ đề nhưng nội dung SAI
+
+7) garbage_offtopic: Lạc đề hoàn toàn
+   - Nói về chủ đề HOÀN TOÀN KHÁC
+
+8) garbage_nonsense: Vô nghĩa, không có ý nghĩa
+   - Câu trả lời loạn xạ, không logic
+
+YÊU CẦU BẮT BUỘC:
+- 8 câu phải KHÁC NHAU HOÀN TOÀN về từ ngữ, cấu trúc, nội dung
+- Được phép dùng thuật ngữ chuyên môn bắt buộc (như "bảo mật", "hệ thống")
+- Chỉ trả về JSON thuần, KHÔNG thêm text nào khác
+
+Format JSON (KHÔNG có field "score"):
 [
-  {"answer":"câu trả lời 1","label":"correct","score":9.5},
-  {"answer":"câu trả lời 2","label":"partial","score":6.0},
-  {"answer":"câu trả lời 3","label":"wrong","score":2.0},
-  {"answer":"câu trả lời 4","label":"garbage","score":0}
+  {"answer":"câu đúng paraphrase mạnh","label":"correct"},
+  {"answer":"câu đúng paraphrase nhẹ","label":"correct"},
+  {"answer":"câu đúng hầu hết, thiếu chi tiết nhỏ","label":"good"},
+  {"answer":"câu thiếu 50% ý","label":"partial"},
+  {"answer":"câu thiếu 70% ý","label":"partial"},
+  {"answer":"câu sai lệch","label":"wrong"},
+  {"answer":"câu lạc đề","label":"garbage"},
+  {"answer":"câu vô nghĩa","label":"garbage"}
 ]
 
 Câu hỏi: ${question.questionText}
-Đáp án mẫu (correctAnswer): ${question.correctAnswer}
-Điểm tối đa (maxScore): ${question.maxScore}
+Đáp án đúng (để tham khảo): ${question.correctAnswer}
 
-BẮT BUỘC: Mỗi object phải có field "score" là số điểm (0 đến ${question.maxScore}) dựa trên so sánh với đáp án mẫu.`;
+Seed: ${randomSeed}`;
 
-        const res = await client.chat.completions.create({
-            model: LM_STUDIO_MODEL,
-            messages: [
-                { role: 'system', content: 'Bạn là giáo viên chấm bài. Sinh câu trả lời mẫu và chấm điểm dựa trên SO SÁNH với đáp án mẫu. BẮT BUỘC trả về field "score" trong mỗi object.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.8,
-            max_tokens: 800 // Tăng để đủ cho cả answer và score chi tiết
-        });
-
-        const text = res.choices[0]?.message?.content || '';
-        const parsed = parseJSONSafe(text);
-        
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-            throw new Error('LLM không trả về mảng hợp lệ');
-        }
-
-        // Chuẩn hóa kết quả
-        return parsed.map((item, index) => {
-            const studentAnswer = item.answer || item.text || '';
-            const label = (item.label || '').toLowerCase();
-            
-            // BẮT BUỘC phải có score từ LLM (chấm dựa trên đáp án mẫu)
-            let teacherScore;
-            if (item.score !== undefined && item.score !== null) {
-                // LLM đã chấm điểm dựa trên so sánh với đáp án mẫu
-                teacherScore = parseFloat(item.score);
-                // Đảm bảo trong khoảng hợp lệ
-                teacherScore = Math.max(0, Math.min(teacherScore, question.maxScore || 10));
-            } else {
-                // Nếu LLM không trả về score, báo lỗi và skip (không dùng fallback)
-                console.error(`❌ LLM không trả về score cho item ${index + 1} (label: "${label}"). Bỏ qua item này.`);
-                throw new Error(`LLM không trả về score cho item ${index + 1}. Điểm số phải được chấm dựa trên so sánh với đáp án mẫu.`);
+            // Tính max_tokens động dựa trên độ dài đáp án mẫu
+            const answerLengthForTokens = (question.correctAnswer || '').length;
+            let dynamicMaxTokens = 900; // Mặc định
+            if (answerLengthForTokens > 500) {
+                dynamicMaxTokens = 1500; // Câu dài: cần nhiều token hơn
+            } else if (answerLengthForTokens > 200) {
+                dynamicMaxTokens = 1200; // Câu trung bình
             }
+
+            const res = await client.chat.completions.create({
+                model: LM_STUDIO_MODEL,
+                messages: [
+                    { role: 'system', content: `Bạn là giáo viên. CHỈ sinh 4 câu trả lời mẫu (correct/partial/wrong/garbage), KHÔNG chấm điểm. Trả về JSON array với field "answer", "label" (không có "score").` },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7, // Giảm xuống để ổn định hơn
+                max_tokens: dynamicMaxTokens
+            });
+
+            const text = res.choices[0]?.message?.content || '';
+            const parsed = parseJSONSafe(text);
             
-            // Làm tròn về 0.5
-            teacherScore = roundToHalf(teacherScore);
-            
-            return {
-                questionId: question.questionId || question.id || 0,
-                questionText: question.questionText || '',
-                correctAnswer: question.correctAnswer || '',
-                studentAnswer,
-                maxScore: question.maxScore || 10,
-                teacherScore, // Điểm này đã được LLM chấm dựa trên so sánh với đáp án mẫu
-                label: label
-            };
-        });
-    } catch (error) {
-        console.error(`❌ Lỗi sinh training data cho câu hỏi ${question.questionId || question.id}:`, error.message);
-        throw error;
+            if (!Array.isArray(parsed) || parsed.length === 0) {
+                throw new Error('LLM không trả về mảng hợp lệ');
+            }
+
+            // Kiểm tra trùng lặp đơn giản (chỉ exact match cho câu ngắn)
+            const seenAnswers = new Set();
+            const normalized = (text) => (text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+            const samples = parsed.map((item, index) => {
+                const studentAnswerRaw = item.answer || item.text || '';
+                const studentAnswer = studentAnswerRaw.trim();
+                const label = (item.label || '').toLowerCase();
+
+                // Kiểm tra trùng lặp exact match (chỉ cho câu ngắn)
+                const normKey = normalized(studentAnswer);
+                const answerLength = normKey.length;
+                
+                // Chỉ check exact match cho câu ngắn (< 100 ký tự)
+                if (answerLength < 100 && seenAnswers.has(normKey)) {
+                    throw new Error(`LLM trả về câu trả lời trùng lặp cho item ${index + 1}.`);
+                }
+                seenAnswers.add(normKey);
+                
+                // Tự động tính điểm dựa trên label với variant
+                // index làm variant để có 3 mức điểm khác nhau cho mỗi label
+                // Ví dụ: correct có thể là 8.5, 9.0, hoặc 9.5 điểm
+                const teacherScore = labelToScore(label, question.maxScore || 10, index);
+                
+                return {
+                    questionId: question.questionId || question.id || 0,
+                    questionText: question.questionText || '',
+                    correctAnswer: question.correctAnswer || '',
+                    studentAnswer,
+                    maxScore: question.maxScore || 10,
+                    teacherScore: roundToHalf(teacherScore),
+                    label: label
+                };
+            });
+
+            // Đảm bảo đủ 8 câu trả lời (tăng từ 4 lên 8 để ML học tốt hơn)
+            if (samples.length < 8) {
+                throw new Error(`LLM không sinh đủ 8 câu trả lời (được ${samples.length}).`);
+            }
+
+            return samples;
+        } catch (error) {
+            lastError = error;
+            console.warn(`⚠️ Attempt ${attempt}/${maxAttempts} failed for question ${question.questionId || question.id}: ${error.message}`);
+            if (attempt === maxAttempts) {
+                console.error(`❌ Lỗi sinh training data cho câu hỏi ${question.questionId || question.id}:`, error.message);
+                throw error;
+            }
+        }
     }
+
+    // Should not reach here
+    throw lastError || new Error('Không thể sinh training data sau nhiều lần thử');
 };
 
 /**
@@ -302,12 +411,13 @@ const mergeTrainingSamplesToMainCSV = (newSamples, gradingDataPath = null) => {
     }
 
     // Loại bỏ duplicate (dựa trên questionId + studentAnswer)
+    const normalize = (text) => (text || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const existingKeys = new Set(
-        existingData.map(row => `${row.questionId || ''}_${row.studentAnswer || ''}`)
+        existingData.map(row => `${row.questionId || ''}_${normalize(row.studentAnswer)}`)
     );
     
     const uniqueNewSamples = newSamples.filter(sample => {
-        const key = `${sample.questionId || ''}_${sample.studentAnswer || ''}`;
+        const key = `${sample.questionId || ''}_${normalize(sample.studentAnswer)}`;
         return !existingKeys.has(key);
     });
 

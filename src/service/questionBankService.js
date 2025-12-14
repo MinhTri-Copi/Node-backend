@@ -1096,7 +1096,16 @@ const deleteQuestionBank = async (userId, bankId) => {
             }
         }
 
-        // Delete question bank (cascade will delete items)
+        // Delete all question bank items first
+        const deletedItemsCount = await db.QuestionBankItem.destroy({
+            where: {
+                questionBankId: bankId
+            },
+            transaction
+        });
+        console.log(`🗑️ Đã xóa ${deletedItemsCount} câu hỏi thuộc bộ đề ${bankId}`);
+
+        // Delete question bank
         await questionBank.destroy({ transaction });
 
         await transaction.commit();
