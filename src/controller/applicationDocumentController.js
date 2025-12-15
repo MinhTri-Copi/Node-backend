@@ -153,11 +153,51 @@ const deleteDocument = async (req, res) => {
     }
 };
 
+const getAllDocumentsForHr = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.query.userId;
+        const { status, documentType, jobPostingId, page, limit, search } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const filters = {
+            status: status || 'all',
+            documentType: documentType || 'all',
+            jobPostingId: jobPostingId || 'all',
+            page: parseInt(page) || 1,
+            limit: parseInt(limit) || 10,
+            search: search?.trim() || ''
+        };
+
+        const data = await applicationDocumentService.getAllDocumentsForHr(userId, filters);
+
+        return res.status(data.EC === 0 ? 200 : 400).json({
+            EM: data.EM,
+            EC: data.EC,
+            DT: data.DT
+        });
+    } catch (error) {
+        console.error('Error in getAllDocumentsForHr controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 module.exports = {
     getDocumentsByApplication,
     checkCanSubmitDocuments,
     createOrUpdateDocument,
     updateDocumentStatus,
-    deleteDocument
+    deleteDocument,
+    getAllDocumentsForHr
 };
 

@@ -160,6 +160,9 @@ const initWebRoutes = (app) => {
     app.post("/api/applications/:applicationId/documents", verifyJWT.verifyJWT, applicationDocumentController.createOrUpdateDocument);
     app.put("/api/documents/:documentId/status", verifyJWT.verifyJWT, verifyJWT.requireRole(2), applicationDocumentController.updateDocumentStatus);
     app.delete("/api/documents/:documentId", verifyJWT.verifyJWT, applicationDocumentController.deleteDocument);
+    
+    // API HR Documents Management (Require JWT + HR Role)
+    app.get("/api/hr/documents", verifyJWT.verifyJWT, verifyJWT.requireRole(2), applicationDocumentController.getAllDocumentsForHr);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);

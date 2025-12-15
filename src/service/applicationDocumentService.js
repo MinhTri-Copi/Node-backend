@@ -323,11 +323,210 @@ const deleteDocument = async (documentId, userId) => {
     }
 };
 
+/**
+ * Get all documents for HR with filters
+ * @param {number} userId - HR user ID
+ * @param {object} filters - Filter options (status, documentType, jobPostingId, page, limit, search)
+ * @returns {object} Documents list with pagination
+ */
+const getAllDocumentsForHr = async (userId, filters = {}) => {
+    try {
+        if (!userId) {
+            return {
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Get recruiters for this HR user
+        const recruiters = await db.Recruiter.findAll({
+            where: { userId },
+            attributes: ['id']
+        });
+
+        if (!recruiters || recruiters.length === 0) {
+            return {
+                EM: 'Bạn chưa được gán vào bất kỳ công ty nào!',
+                EC: 2,
+                DT: {
+                    documents: [],
+                    totalRows: 0,
+                    totalPages: 0,
+                    currentPage: 1
+                }
+            };
+        }
+
+        const recruiterIds = recruiters.map(r => r.id);
+
+        // Get all job postings for these recruiters
+        const jobPostings = await db.JobPosting.findAll({
+            where: { recruiterId: recruiterIds },
+            attributes: ['id']
+        });
+
+        if (!jobPostings || jobPostings.length === 0) {
+            return {
+                EM: 'Chưa có tin tuyển dụng nào!',
+                EC: 3,
+                DT: {
+                    documents: [],
+                    totalRows: 0,
+                    totalPages: 0,
+                    currentPage: 1
+                }
+            };
+        }
+
+        const jobPostingIds = jobPostings.map(jp => jp.id);
+
+        // Get all applications for these job postings
+        const applications = await db.JobApplication.findAll({
+            where: { jobPostingId: jobPostingIds },
+            attributes: ['id']
+        });
+
+        if (!applications || applications.length === 0) {
+            return {
+                EM: 'Chưa có đơn ứng tuyển nào!',
+                EC: 4,
+                DT: {
+                    documents: [],
+                    totalRows: 0,
+                    totalPages: 0,
+                    currentPage: 1
+                }
+            };
+        }
+
+        const applicationIds = applications.map(app => app.id);
+
+        // Build where clause
+        const whereClause = {
+            jobApplicationId: applicationIds
+        };
+
+        // Filter by status
+        if (filters.status && filters.status !== 'all') {
+            whereClause.status = filters.status;
+        }
+
+        // Filter by document type
+        if (filters.documentType && filters.documentType !== 'all') {
+            whereClause.documentType = filters.documentType;
+        }
+
+        // Filter by job posting (through application)
+        let applicationFilter = {};
+        if (filters.jobPostingId && filters.jobPostingId !== 'all') {
+            applicationFilter.jobPostingId = parseInt(filters.jobPostingId);
+        }
+
+        // Pagination
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        // Get documents with related data
+        const { count, rows } = await db.ApplicationDocument.findAndCountAll({
+            where: whereClause,
+            include: [
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id', 'Ngaynop'],
+                    where: applicationFilter,
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty']
+                                }
+                            ]
+                        },
+                        {
+                            model: db.Record,
+                            attributes: ['id'],
+                            include: [
+                                {
+                                    model: db.User,
+                                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset,
+            distinct: true
+        });
+
+        // Format documents
+        const documents = rows.map(doc => {
+            const docData = doc.toJSON();
+            return {
+                id: docData.id,
+                documentType: docData.documentType,
+                fileUrl: docData.fileUrl,
+                expiryDate: docData.expiryDate,
+                bankAccountNumber: docData.bankAccountNumber,
+                status: docData.status,
+                notes: docData.notes,
+                createdAt: docData.createdAt,
+                updatedAt: docData.updatedAt,
+                application: {
+                    id: docData.JobApplication?.id,
+                    submittedDate: docData.JobApplication?.Ngaynop,
+                    jobPosting: {
+                        id: docData.JobApplication?.JobPosting?.id,
+                        title: docData.JobApplication?.JobPosting?.Tieude,
+                        company: {
+                            id: docData.JobApplication?.JobPosting?.Company?.id,
+                            name: docData.JobApplication?.JobPosting?.Company?.Tencongty
+                        }
+                    },
+                    candidate: {
+                        id: docData.JobApplication?.Record?.User?.id,
+                        name: docData.JobApplication?.Record?.User?.Hoten,
+                        email: docData.JobApplication?.Record?.User?.email,
+                        phone: docData.JobApplication?.Record?.User?.SDT
+                    }
+                }
+            };
+        });
+
+        return {
+            EM: 'Lấy danh sách tài liệu thành công!',
+            EC: 0,
+            DT: {
+                documents,
+                totalRows: count,
+                totalPages: Math.ceil(count / limit),
+                currentPage: page
+            }
+        };
+    } catch (error) {
+        console.error('Error in getAllDocumentsForHr:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy danh sách tài liệu!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 module.exports = {
     getDocumentsByApplication,
     hasPassedAllInterviews,
     createOrUpdateDocument,
     updateDocumentStatus,
-    deleteDocument
+    deleteDocument,
+    getAllDocumentsForHr
 };
 
