@@ -301,8 +301,66 @@ const createJobPosting = async (data) => {
         }
 
         // Pre-embed JD text (async, không block response)
-        if (newJob.Mota) {
-            createOrUpdateJobPostingEmbedding(newJob.id, newJob.Mota)
+        // Build JD text đầy đủ theo chuẩn DB (JobPosting + Format + Company + Majors)
+        const buildJDText = async (job, majors = [], company = null, format = null) => {
+            const parts = [];
+            
+            // 1. JobPosting fields
+            if (job.Tieude) parts.push(job.Tieude);
+            if (job.Mota) parts.push(job.Mota);
+            if (job.Diadiem) parts.push(`Địa điểm: ${job.Diadiem}`);
+            if (job.Kinhnghiem) parts.push(`Kinh nghiệm yêu cầu: ${job.Kinhnghiem}`);
+            if (job.Luongtoithieu || job.Luongtoida) {
+                const salaryParts = [];
+                if (job.Luongtoithieu) salaryParts.push(`${(job.Luongtoithieu / 1000000).toFixed(1)} triệu`);
+                if (job.Luongtoida) salaryParts.push(`${(job.Luongtoida / 1000000).toFixed(1)} triệu`);
+                parts.push(`Mức lương: ${salaryParts.join(' - ')} VNĐ`);
+            }
+            
+            // 2. Format
+            if (format && format.TenHinhThuc) {
+                parts.push(`Hình thức làm việc: ${format.TenHinhThuc}`);
+            }
+            
+            // 3. Majors
+            if (majors.length > 0) {
+                const majorNames = majors.map(m => m.TenNghanhNghe || m).join(', ');
+                parts.push(`Ngành nghề: ${majorNames}`);
+            }
+            
+            // 4. Company
+            if (company) {
+                if (company.Tencongty) parts.push(`Công ty: ${company.Tencongty}`);
+                if (company.Nganhnghe) parts.push(`Lĩnh vực công ty: ${company.Nganhnghe}`);
+                if (company.Quymo) parts.push(`Quy mô: ${company.Quymo}`);
+                if (company.Diachi) parts.push(`Địa chỉ công ty: ${company.Diachi}`);
+                if (company.Mota) parts.push(`Mô tả công ty: ${company.Mota}`);
+            }
+            
+            return parts.filter(Boolean).join('. ');
+        };
+        
+        // Lấy thông tin đầy đủ
+        let majors = [];
+        if (data.majorIds && data.majorIds.length > 0) {
+            majors = await db.Major.findAll({
+                where: { id: data.majorIds },
+                attributes: ['id', 'TenNghanhNghe']
+            });
+        }
+        
+        const company = await db.Company.findByPk(data.companyId, {
+            attributes: ['id', 'Tencongty', 'Nganhnghe', 'Quymo', 'Diachi', 'Mota']
+        });
+        
+        const format = data.formatId ? await db.Format.findByPk(data.formatId, {
+            attributes: ['id', 'TenHinhThuc']
+        }) : null;
+        
+        const jdText = await buildJDText(newJob, majors, company, format);
+        
+        if (jdText.trim().length > 0) {
+            createOrUpdateJobPostingEmbedding(newJob.id, jdText)
                 .then(result => {
                     if (result.EC === 0) {
                         console.log(`✅ Đã embed JD cho job posting ${newJob.id}`);
@@ -382,21 +440,82 @@ const updateJobPosting = async (id, data) => {
             }
         }
 
-        // Re-embed JD text nếu Mota thay đổi (async, không block response)
-        const updatedJob = await db.JobPosting.findByPk(id);
-        if (updatedJob && (data.Mota || updatedJob.Mota)) {
-            const jdText = data.Mota || updatedJob.Mota;
-            createOrUpdateJobPostingEmbedding(id, jdText)
-                .then(result => {
-                    if (result.EC === 0) {
-                        console.log(`✅ Đã re-embed JD cho job posting ${id}`);
-                    } else {
-                        console.warn(`⚠️ Không thể re-embed JD cho job posting ${id}: ${result.EM}`);
-                    }
-                })
-                .catch(error => {
-                    console.error(`❌ Lỗi khi re-embed JD cho job posting ${id}:`, error);
-                });
+        // Re-embed JD text nếu có thay đổi (async, không block response)
+        const updatedJob = await db.JobPosting.findByPk(id, {
+            include: [
+                {
+                    model: db.Company,
+                    as: 'Company',
+                    attributes: ['id', 'Tencongty', 'Nganhnghe', 'Quymo', 'Diachi', 'Mota']
+                },
+                {
+                    model: db.Format,
+                    attributes: ['id', 'TenHinhThuc']
+                },
+                {
+                    model: db.Major,
+                    attributes: ['id', 'TenNghanhNghe'],
+                    through: { attributes: [] }
+                }
+            ]
+        });
+        
+        if (updatedJob) {
+            // Helper function để build JD text đầy đủ theo chuẩn DB
+            const buildJDText = (job) => {
+                const parts = [];
+                
+                // 1. JobPosting fields
+                if (job.Tieude) parts.push(job.Tieude);
+                if (job.Mota) parts.push(job.Mota);
+                if (job.Diadiem) parts.push(`Địa điểm: ${job.Diadiem}`);
+                if (job.Kinhnghiem) parts.push(`Kinh nghiệm yêu cầu: ${job.Kinhnghiem}`);
+                if (job.Luongtoithieu || job.Luongtoida) {
+                    const salaryParts = [];
+                    if (job.Luongtoithieu) salaryParts.push(`${(job.Luongtoithieu / 1000000).toFixed(1)} triệu`);
+                    if (job.Luongtoida) salaryParts.push(`${(job.Luongtoida / 1000000).toFixed(1)} triệu`);
+                    parts.push(`Mức lương: ${salaryParts.join(' - ')} VNĐ`);
+                }
+                
+                // 2. Format
+                if (job.Format && job.Format.TenHinhThuc) {
+                    parts.push(`Hình thức làm việc: ${job.Format.TenHinhThuc}`);
+                }
+                
+                // 3. Majors
+                const majors = job.Majors || job.majors || [];
+                if (majors.length > 0) {
+                    const majorNames = majors.map(m => m.TenNghanhNghe).join(', ');
+                    parts.push(`Ngành nghề: ${majorNames}`);
+                }
+                
+                // 4. Company
+                if (job.Company) {
+                    if (job.Company.Tencongty) parts.push(`Công ty: ${job.Company.Tencongty}`);
+                    if (job.Company.Nganhnghe) parts.push(`Lĩnh vực công ty: ${job.Company.Nganhnghe}`);
+                    if (job.Company.Quymo) parts.push(`Quy mô: ${job.Company.Quymo}`);
+                    if (job.Company.Diachi) parts.push(`Địa chỉ công ty: ${job.Company.Diachi}`);
+                    if (job.Company.Mota) parts.push(`Mô tả công ty: ${job.Company.Mota}`);
+                }
+                
+                return parts.filter(Boolean).join('. ');
+            };
+            
+            const jdText = buildJDText(updatedJob);
+            
+            if (jdText.trim().length > 0) {
+                createOrUpdateJobPostingEmbedding(id, jdText)
+                    .then(result => {
+                        if (result.EC === 0) {
+                            console.log(`✅ Đã re-embed JD cho job posting ${id}`);
+                        } else {
+                            console.warn(`⚠️ Không thể re-embed JD cho job posting ${id}: ${result.EM}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`❌ Lỗi khi re-embed JD cho job posting ${id}:`, error);
+                    });
+            }
         }
 
         return {

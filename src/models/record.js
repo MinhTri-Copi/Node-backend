@@ -21,6 +21,14 @@ module.exports = (sequelize, DataTypes) => {
     File_url: DataTypes.STRING,
     Ngaytao: DataTypes.DATEONLY,
     userId: DataTypes.INTEGER,
+    // CV extraction fields
+    cvText: DataTypes.TEXT('long'),
+    cvEmbedding: DataTypes.TEXT('long'),
+    fileHash: DataTypes.STRING(64),
+    extractionStatus: DataTypes.ENUM('PENDING', 'PROCESSING', 'READY', 'FAILED'),
+    modelVersion: DataTypes.STRING(100),
+    extractedAt: DataTypes.DATE,
+    errorMessage: DataTypes.TEXT,
   }, {
     sequelize,
     modelName: 'Record',

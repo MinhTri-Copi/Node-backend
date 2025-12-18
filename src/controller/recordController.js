@@ -189,10 +189,10 @@ const uploadCV = async (req, res) => {
             });
         }
 
-        const candidateCV = result.DT;
+        const record = result.DT;
 
         // Nếu CV đã được extract trước đó → return ngay
-        if (candidateCV.extractionStatus === 'READY' && candidateCV.cvText) {
+        if (record.extractionStatus === 'READY' && record.cvText) {
             return res.status(200).json({
                 EM: 'Upload file thành công! CV đã được xử lý trước đó.',
                 EC: 0,
@@ -201,7 +201,7 @@ const uploadCV = async (req, res) => {
                     filePath: filePath,
                     fileUrl: `http://localhost:8082${filePath}`,
                     extractionStatus: 'READY',
-                    candidateCVId: candidateCV.id
+                    recordId: record.id
                 }
             });
         }
@@ -210,7 +210,7 @@ const uploadCV = async (req, res) => {
         // Dùng setTimeout để chạy async, không block request
         setTimeout(async () => {
             try {
-                await processCVExtraction(candidateCV.id);
+                await processCVExtraction(record.id);
             } catch (error) {
                 console.error('Error in background CV extraction:', error);
             }
@@ -219,13 +219,13 @@ const uploadCV = async (req, res) => {
         return res.status(200).json({
             EM: 'Upload file thành công! Đang xử lý CV...',
             EC: 0,
-            DT: {
-                fileName: req.file.filename,
-                filePath: filePath,
-                fileUrl: `http://localhost:8082${filePath}`,
-                extractionStatus: 'PENDING',
-                candidateCVId: candidateCV.id
-            }
+                DT: {
+                    fileName: req.file.filename,
+                    filePath: filePath,
+                    fileUrl: `http://localhost:8082${filePath}`,
+                    extractionStatus: 'PENDING',
+                    recordId: record.id
+                }
         });
     } catch (e) {
         console.log(e);

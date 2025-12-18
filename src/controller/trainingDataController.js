@@ -228,16 +228,17 @@ const gradeWithLLM = async (req, res) => {
 /**
  * POST /api/hr/cv-matching/generate-training-data
  * Sinh dữ liệu training CV-JD matching bằng LLM
- * Body: { targetCount: 2500, autoMerge: true }
+ * Body: { targetCount: 5, autoMerge: true }
  */
 const generateCVMatchingTrainingData = async (req, res) => {
     try {
-        const { targetCount = 2500, autoMerge = true } = req.body;
+        const body = req.body || {};
+        const { targetCount = 5, autoMerge = true } = body;
 
-        if (!targetCount || targetCount < 100) {
+        if (!targetCount || targetCount < 1) {
             return res.status(400).json({
                 success: false,
-                message: 'targetCount phải >= 100'
+                message: 'targetCount phải >= 1'
             });
         }
 
@@ -279,7 +280,8 @@ const generateCVMatchingTrainingData = async (req, res) => {
  */
 const getCVMatchingTrainingDataStatus = async (req, res) => {
     try {
-        const csvPath = path.join(__dirname, '../../ml-grader/cv_matching_data.csv');
+        // ml-grader nằm cùng cấp với backend → đi lên 3 cấp
+        const csvPath = path.join(__dirname, '../../../ml-grader/cv_matching_data.csv');
         
         let rowCount = 0;
         let fileSize = 0;

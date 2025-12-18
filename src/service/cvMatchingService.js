@@ -88,17 +88,26 @@ const ruleFilterJobPostings = async (filters = {}) => {
             };
         }
 
-        // Query job postings
+        // Query job postings với đầy đủ thông tin để làm JD text đầy đủ hơn
         let jobPostings = await db.JobPosting.findAll({
             where,
             include: [
                 {
                     model: db.Company,
                     as: 'Company',
-                    attributes: ['id', 'name']
+                    attributes: ['id', 'Tencongty', 'Nganhnghe', 'Quymo', 'Diachi', 'Mota']
+                },
+                {
+                    model: db.Format,
+                    attributes: ['id', 'TenHinhThuc']
+                },
+                {
+                    model: db.Major,
+                    attributes: ['id', 'TenNghanhNghe'],
+                    through: { attributes: [] } // Không lấy thông tin từ bảng trung gian
                 }
             ],
-            attributes: ['id', 'Tieude', 'Mota', 'Diadiem', 'Luongtoithieu', 'Luongtoida', 'Kinhnghiem']
+            attributes: ['id', 'Tieude', 'Mota', 'Diadiem', 'Luongtoithieu', 'Luongtoida', 'Kinhnghiem', 'formatId']
         });
 
         // Filter by major (nếu có)
@@ -283,21 +292,116 @@ const findMatchingJobs = async (userId, filters = {}) => {
         // Step 5: Stage 1 - Cosine similarity
         console.log(`🔄 [STAGE 1] Đang tính cosine similarity...`);
         const cosineMatches = [];
+        let missingEmbeddings = 0;
+        const MIN_JD_LENGTH = 100; // Tối thiểu 100 ký tự để match chính xác
 
         for (const job of filteredJobs) {
-            const jdEmbedding = jdEmbeddings[job.id]?.embedding;
+            let jdEmbedding = jdEmbeddings[job.id]?.embedding;
 
+            // Helper function để tạo JD text đầy đủ từ nhiều fields (theo chuẩn DB)
+            const buildJDText = (job) => {
+                const parts = [];
+                
+                // 1. Tieude (JobPosting) - Title
+                if (job.Tieude) parts.push(job.Tieude);
+                
+                // 2. Mota (JobPosting) - Description
+                if (job.Mota) parts.push(job.Mota);
+                
+                // 3. Diadiem (JobPosting) - Location
+                if (job.Diadiem) {
+                    parts.push(`Địa điểm: ${job.Diadiem}`);
+                }
+                
+                // 4. Kinhnghiem (JobPosting) - Experience
+                if (job.Kinhnghiem) {
+                    parts.push(`Kinh nghiệm yêu cầu: ${job.Kinhnghiem}`);
+                }
+                
+                // 5. Luongtoithieu, Luongtoida (JobPosting) - Salary
+                if (job.Luongtoithieu || job.Luongtoida) {
+                    const salaryParts = [];
+                    if (job.Luongtoithieu) salaryParts.push(`${(job.Luongtoithieu / 1000000).toFixed(1)} triệu`);
+                    if (job.Luongtoida) salaryParts.push(`${(job.Luongtoida / 1000000).toFixed(1)} triệu`);
+                    parts.push(`Mức lương: ${salaryParts.join(' - ')} VNĐ`);
+                }
+                
+                // 6. TenHinhThuc (Format) - Work format
+                if (job.Format && job.Format.TenHinhThuc) {
+                    parts.push(`Hình thức làm việc: ${job.Format.TenHinhThuc}`);
+                }
+                
+                // 7. Majors (Ngành nghề) - Domain/Stack
+                const majors = job.Majors || job.majors || [];
+                if (majors.length > 0) {
+                    const majorNames = majors.map(m => m.TenNghanhNghe).join(', ');
+                    parts.push(`Ngành nghề: ${majorNames}`);
+                }
+                
+                // 8. Company info (Company) - Company details
+                if (job.Company) {
+                    if (job.Company.Tencongty) {
+                        parts.push(`Công ty: ${job.Company.Tencongty}`);
+                    }
+                    if (job.Company.Nganhnghe) {
+                        parts.push(`Lĩnh vực công ty: ${job.Company.Nganhnghe}`);
+                    }
+                    if (job.Company.Quymo) {
+                        parts.push(`Quy mô: ${job.Company.Quymo}`);
+                    }
+                    if (job.Company.Diachi) {
+                        parts.push(`Địa chỉ công ty: ${job.Company.Diachi}`);
+                    }
+                    if (job.Company.Mota) {
+                        parts.push(`Mô tả công ty: ${job.Company.Mota}`);
+                    }
+                }
+                
+                return parts.filter(Boolean).join('. ');
+            };
+
+            // Build JD text đầy đủ
+            const jdText = buildJDText(job);
+            
+            // Validation: JD text phải đủ dài để match chính xác
+            if (jdText.trim().length < MIN_JD_LENGTH) {
+                console.warn(`⚠️ Job ${job.id} có JD text quá ngắn (${jdText.length} < ${MIN_JD_LENGTH}): "${jdText.substring(0, 100)}..."`);
+                // Vẫn tiếp tục nhưng log warning để debug
+            }
+
+            // Fallback: Nếu chưa có embedding, embed on-the-fly
             if (!jdEmbedding) {
-                continue;
+                if (jdText.trim().length > 0) {
+                    console.log(`⚠️ Job ${job.id} chưa có embedding, đang embed on-the-fly (JD length: ${jdText.length})...`);
+                    try {
+                        jdEmbedding = await embedText(jdText);
+                        missingEmbeddings++;
+                    } catch (embedError) {
+                        console.warn(`⚠️ Không thể embed JD cho job ${job.id}: ${embedError.message}`);
+                        continue;
+                    }
+                } else {
+                    console.warn(`⚠️ Job ${job.id} không có đủ thông tin, bỏ qua`);
+                    continue;
+                }
             }
 
             const similarity = cosineSimilarity(cvEmbedding, jdEmbedding);
+            
+            // Log JD text length và similarity để debug
+            if (jdText.trim().length < MIN_JD_LENGTH) {
+                console.log(`📊 Job ${job.id}: JD length=${jdText.length}, similarity=${similarity.toFixed(3)}`);
+            }
 
             cosineMatches.push({
                 jobPosting: job,
                 cosineSimilarity: similarity,
-                jdText: job.Mota || ''
+                jdText: jdText
             });
+        }
+
+        if (missingEmbeddings > 0) {
+            console.log(`⚠️ [STAGE 1] Đã embed on-the-fly cho ${missingEmbeddings} jobs chưa có embedding`);
         }
 
         // Sort và lấy top 50
@@ -314,11 +418,28 @@ const findMatchingJobs = async (userId, filters = {}) => {
             try {
                 console.log(`🔄 [STAGE 2] Đang rerank bằng ML model...`);
                 const jdTexts = top50Matches.map(m => m.jdText);
+                
+                // Log JD text lengths để debug
+                const shortJDs = top50Matches.filter(m => m.jdText.length < MIN_JD_LENGTH);
+                if (shortJDs.length > 0) {
+                    console.warn(`⚠️ [STAGE 2] Có ${shortJDs.length} JD text quá ngắn (< ${MIN_JD_LENGTH}):`);
+                    shortJDs.forEach(m => {
+                        console.warn(`   Job ${m.jobPosting.id}: length=${m.jdText.length}, text="${m.jdText.substring(0, 80)}..."`);
+                    });
+                }
+                
                 const mlResults = await matchCVWithML(cvText, jdTexts);
 
                 // Map ML results back to jobs
                 const mlMatches = mlResults.map((mlResult, idx) => {
                     const originalMatch = top50Matches[mlResult.jdIndex];
+                    const jdText = originalMatch.jdText;
+                    
+                    // Log nếu JD text ngắn và match score thấp
+                    if (jdText.length < MIN_JD_LENGTH && mlResult.matchScore < 60) {
+                        console.log(`📊 Job ${originalMatch.jobPosting.id}: JD ngắn (${jdText.length} chars) → matchScore=${mlResult.matchScore}%`);
+                    }
+                    
                     return {
                         jobPosting: originalMatch.jobPosting,
                         matchScore: mlResult.matchScore, // 0-100 từ ML model
@@ -402,7 +523,7 @@ const getJobPostingWithMatchScore = async (jobPostingId, userId) => {
                 {
                     model: db.Company,
                     as: 'Company',
-                    attributes: ['id', 'name']
+                    attributes: ['id', 'Tencongty']
                 }
             ]
         });
