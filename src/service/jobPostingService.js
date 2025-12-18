@@ -1,4 +1,5 @@
 import db from '../models/index';
+import { createOrUpdateJobPostingEmbedding } from './jobPostingEmbeddingService.js';
 
 // Get list of job postings with pagination and filters
 // QUERY FROM MajorJobPosting table
@@ -299,6 +300,21 @@ const createJobPosting = async (data) => {
             await db.MajorJobPosting.bulkCreate(majorJobPostings);
         }
 
+        // Pre-embed JD text (async, không block response)
+        if (newJob.Mota) {
+            createOrUpdateJobPostingEmbedding(newJob.id, newJob.Mota)
+                .then(result => {
+                    if (result.EC === 0) {
+                        console.log(`✅ Đã embed JD cho job posting ${newJob.id}`);
+                    } else {
+                        console.warn(`⚠️ Không thể embed JD cho job posting ${newJob.id}: ${result.EM}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`❌ Lỗi khi embed JD cho job posting ${newJob.id}:`, error);
+                });
+        }
+
         return {
             EM: 'Tạo tin tuyển dụng thành công!',
             EC: 0,
@@ -364,6 +380,23 @@ const updateJobPosting = async (id, data) => {
                 }));
                 await db.MajorJobPosting.bulkCreate(majorJobPostings);
             }
+        }
+
+        // Re-embed JD text nếu Mota thay đổi (async, không block response)
+        const updatedJob = await db.JobPosting.findByPk(id);
+        if (updatedJob && (data.Mota || updatedJob.Mota)) {
+            const jdText = data.Mota || updatedJob.Mota;
+            createOrUpdateJobPostingEmbedding(id, jdText)
+                .then(result => {
+                    if (result.EC === 0) {
+                        console.log(`✅ Đã re-embed JD cho job posting ${id}`);
+                    } else {
+                        console.warn(`⚠️ Không thể re-embed JD cho job posting ${id}: ${result.EM}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`❌ Lỗi khi re-embed JD cho job posting ${id}:`, error);
+                });
         }
 
         return {

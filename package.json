@@ -34,6 +34,7 @@
     "nodemailer": "^7.0.11",
     "nodemon": "3.1.10",
     "openai": "^6.9.1",
+    "pdf-parse": "^2.4.5",
     "sequelize": "6.13.0",
     "sequelize-cli": "6.6.3",
     "undici": "^7.16.0"

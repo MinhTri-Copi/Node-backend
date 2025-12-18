@@ -1,4 +1,5 @@
 import recordService from '../service/recordService';
+import { getCVExtractionStatus } from '../service/cvExtractionService.js';
 
 // Get all records of logged-in user
 const getMyRecords = async (req, res) => {
@@ -155,16 +156,75 @@ const uploadCV = async (req, res) => {
             });
         }
 
-        // Return file path
-        let filePath = `/uploads/cv/${req.file.filename}`;
+        const userId = req.body.userId || req.user?.id;
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin người dùng!',
+                EC: 1,
+                DT: ''
+            });
+        }
+
+        // Import CV extraction service
+        const { createOrUpdateCandidateCV, processCVExtraction } = await import('../service/cvExtractionService.js');
+        const fs = await import('fs');
+        const path = await import('path');
+
+        // Get absolute file path
+        const uploadDir = path.resolve(__dirname, '..', 'public', 'uploads', 'cv');
+        const absoluteFilePath = path.join(uploadDir, req.file.filename);
+        const filePath = `/uploads/cv/${req.file.filename}`;
+
+        // Read file buffer để tính hash
+        const fileBuffer = fs.readFileSync(absoluteFilePath);
+
+        // Tạo hoặc cập nhật CandidateCV record
+        const result = await createOrUpdateCandidateCV(userId, absoluteFilePath, fileBuffer);
+
+        if (result.EC !== 0) {
+            return res.status(500).json({
+                EM: result.EM,
+                EC: result.EC,
+                DT: ''
+            });
+        }
+
+        const candidateCV = result.DT;
+
+        // Nếu CV đã được extract trước đó → return ngay
+        if (candidateCV.extractionStatus === 'READY' && candidateCV.cvText) {
+            return res.status(200).json({
+                EM: 'Upload file thành công! CV đã được xử lý trước đó.',
+                EC: 0,
+                DT: {
+                    fileName: req.file.filename,
+                    filePath: filePath,
+                    fileUrl: `http://localhost:8082${filePath}`,
+                    extractionStatus: 'READY',
+                    candidateCVId: candidateCV.id
+                }
+            });
+        }
+
+        // Background job: Process CV extraction (không block response)
+        // Dùng setTimeout để chạy async, không block request
+        setTimeout(async () => {
+            try {
+                await processCVExtraction(candidateCV.id);
+            } catch (error) {
+                console.error('Error in background CV extraction:', error);
+            }
+        }, 100); // Delay 100ms để đảm bảo response đã được gửi
 
         return res.status(200).json({
-            EM: 'Upload file thành công!',
+            EM: 'Upload file thành công! Đang xử lý CV...',
             EC: 0,
             DT: {
                 fileName: req.file.filename,
                 filePath: filePath,
-                fileUrl: `http://localhost:8082${filePath}`
+                fileUrl: `http://localhost:8082${filePath}`,
+                extractionStatus: 'PENDING',
+                candidateCVId: candidateCV.id
             }
         });
     } catch (e) {
@@ -177,12 +237,46 @@ const uploadCV = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/candidate/cv-status
+ * Get CV extraction status của user
+ */
+const getCVStatus = async (req, res) => {
+    try {
+        const userId = req.user?.id || req.query.userId || req.body.userId;
+
+        if (!userId) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin user!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const result = await getCVExtractionStatus(userId);
+
+        return res.status(200).json({
+            EM: result.EM,
+            EC: result.EC,
+            DT: result.DT
+        });
+    } catch (error) {
+        console.error('Error getting CV status:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 module.exports = {
     getMyRecords,
     getRecordById,
     createRecord,
     updateRecord,
     deleteRecord,
-    uploadCV
+    uploadCV,
+    getCVStatus
 };
 

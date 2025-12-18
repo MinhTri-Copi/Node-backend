@@ -23,7 +23,12 @@ module.exports = (sequelize, DataTypes) => {
                 through: 'MajorJobPosting',
                 foreignKey: 'jobPostingId',
                 otherKey: 'majorId',
-            })
+            });
+
+            JobPosting.hasOne(models.JobPostingEmbedding, {
+                foreignKey: 'jobPostingId',
+                as: 'Embedding'
+            });
 
         }
     }

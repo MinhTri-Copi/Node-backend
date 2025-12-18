@@ -15,6 +15,7 @@ import interviewRoundController from '../controller/interviewRoundController';
 import meetingController from '../controller/meetingController';
 import questionBankController from '../controller/questionBankController';
 import trainingDataController from '../controller/trainingDataController';
+import cvMatchingController from '../controller/cvMatchingController.js';
 import upload from '../middleware/uploadCV';
 import uploadQuestionBank from '../middleware/uploadQuestionBank';
 import verifyJWT from '../middleware/verifyJWT';
@@ -39,6 +40,7 @@ const initWebRoutes = (app) => {
     // API Record (Require JWT)
     app.get("/api/records", verifyJWT.verifyJWT, recordController.getMyRecords);
     app.get("/api/records/:id", verifyJWT.verifyJWT, recordController.getRecordById);
+    app.get("/api/candidate/cv-status", verifyJWT.verifyJWT, recordController.getCVStatus);
     app.post("/api/records", verifyJWT.verifyJWT, recordController.createRecord);
     app.put("/api/records/:id", verifyJWT.verifyJWT, recordController.updateRecord);
     app.delete("/api/records/:id", verifyJWT.verifyJWT, recordController.deleteRecord);
@@ -60,6 +62,10 @@ const initWebRoutes = (app) => {
     app.get("/api/job-applications", verifyJWT.verifyJWT, jobApplicationController.getMyApplications);
     app.post("/api/job-applications/tests/start", verifyJWT.verifyJWT, jobApplicationController.startTest);
     app.get("/api/job-applications/tests/submissions/:submissionId", verifyJWT.verifyJWT, jobApplicationController.getTestSubmissionDetail);
+
+    // API CV Matching (Require JWT)
+    app.post("/api/candidate/find-matching-jobs", verifyJWT.verifyJWT, cvMatchingController.findMatchingJobsForCandidate);
+    app.get("/api/candidate/job/:id/match-score", verifyJWT.verifyJWT, cvMatchingController.getJobMatchScore);
 
     // API HR Dashboard (Require JWT + HR Role)
     app.get("/api/hr/dashboard", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getDashboard);
@@ -112,6 +118,10 @@ const initWebRoutes = (app) => {
     app.get("/api/hr/training-data/answers", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.getGradedAnswers);
     app.post("/api/hr/training-data/dataset", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.createDataset);
     app.post("/api/hr/training-data/export", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.exportDataset);
+    
+    // API CV Matching Training Data Generation (Require JWT + HR Role)
+    app.post("/api/hr/cv-matching/generate-training-data", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.generateCVMatchingTrainingData);
+    app.get("/api/hr/cv-matching/training-data/status", verifyJWT.verifyJWT, verifyJWT.requireRole(2), trainingDataController.getCVMatchingTrainingDataStatus);
     
     // API Debug - PHA B: Export dữ liệu để train (không cần JWT cho dev, có thể thêm sau)
     app.get("/api/debug/export-answers", trainingDataController.exportAnswersForTraining);

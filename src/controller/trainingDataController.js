@@ -6,6 +6,7 @@
 
 const trainingDataService = require('../service/trainingDataService');
 const trainingDataGradingService = require('../service/trainingDataGradingService');
+const cvMatchingDataGenerationService = require('../service/cvMatchingDataGenerationService');
 const path = require('path');
 const fs = require('fs').promises;
 
@@ -224,6 +225,97 @@ const gradeWithLLM = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/hr/cv-matching/generate-training-data
+ * Sinh dữ liệu training CV-JD matching bằng LLM
+ * Body: { targetCount: 2500, autoMerge: true }
+ */
+const generateCVMatchingTrainingData = async (req, res) => {
+    try {
+        const { targetCount = 2500, autoMerge = true } = req.body;
+
+        if (!targetCount || targetCount < 100) {
+            return res.status(400).json({
+                success: false,
+                message: 'targetCount phải >= 100'
+            });
+        }
+
+        // Chạy generation trong background (không block response)
+        cvMatchingDataGenerationService.autoGenerateAndSaveTrainingData({
+            targetCount,
+            autoMerge
+        })
+            .then(result => {
+                if (result.success) {
+                    console.log(`✅ CV Matching Training Data: ${result.message}`);
+                } else {
+                    console.error(`❌ CV Matching Training Data: ${result.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Lỗi khi sinh CV matching training data:', error);
+            });
+
+        // Trả response ngay
+        res.json({
+            success: true,
+            message: `Đã bắt đầu sinh ${targetCount} CV-JD pairs. Quá trình sẽ chạy trong background.`,
+            targetCount
+        });
+    } catch (error) {
+        console.error('Error generating CV matching training data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi sinh dữ liệu training',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * GET /api/hr/cv-matching/training-data/status
+ * Kiểm tra trạng thái file CSV training data
+ */
+const getCVMatchingTrainingDataStatus = async (req, res) => {
+    try {
+        const csvPath = path.join(__dirname, '../../ml-grader/cv_matching_data.csv');
+        
+        let rowCount = 0;
+        let fileSize = 0;
+        let exists = false;
+
+        const fsSync = require('fs');
+        if (fsSync.existsSync(csvPath)) {
+            exists = true;
+            const stats = await fsSync.promises.stat(csvPath);
+            fileSize = stats.size;
+
+            // Đếm số dòng
+            const content = await fsSync.promises.readFile(csvPath, 'utf8');
+            const lines = content.split('\n').filter(line => line.trim());
+            rowCount = Math.max(0, lines.length - 1); // Trừ header
+        }
+
+        res.json({
+            success: true,
+            data: {
+                exists,
+                rowCount,
+                fileSize,
+                filePath: csvPath
+            }
+        });
+    } catch (error) {
+        console.error('Error getting CV matching training data status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi kiểm tra trạng thái',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getEssayQuestions,
     getGradedAnswers,
@@ -231,5 +323,7 @@ module.exports = {
     exportDataset,
     exportAnswersForTraining,
     getAnswersNeedingGrading,
-    gradeWithLLM
+    gradeWithLLM,
+    generateCVMatchingTrainingData,
+    getCVMatchingTrainingDataStatus
 };
