@@ -95,11 +95,7 @@ const ruleFilterJobPostings = async (filters = {}) => {
                 {
                     model: db.Company,
                     as: 'Company',
-                    attributes: ['id', 'Tencongty', 'Nganhnghe', 'Quymo', 'Diachi', 'Mota']
-                },
-                {
-                    model: db.Format,
-                    attributes: ['id', 'TenHinhThuc']
+                    attributes: ['id', 'Tencongty'] // Chỉ lấy tên công ty
                 },
                 {
                     model: db.Major,
@@ -294,6 +290,37 @@ const findMatchingJobs = async (userId, filters = {}) => {
         const cosineMatches = [];
         let missingEmbeddings = 0;
         const MIN_JD_LENGTH = 100; // Tối thiểu 100 ký tự để match chính xác
+        const MIN_COMPREHENSIVE_JD_LENGTH = 400; // JD đủ dài từ các field khác (dùng chung cho Stage 1 và Stage 2)
+
+        // Helper function để check Mota có phải placeholder không (dùng chung cho Stage 1 và Stage 2)
+        const isValidMota = (mota) => {
+            if (!mota || mota.trim().length === 0) return false;
+            const motaLower = mota.toLowerCase().trim();
+            // Filter out các placeholder text - match exact word hoặc standalone phrase
+            const placeholders = [
+                'không có mô tả',
+                'không có',
+                'n/a',
+                ' chưa có',
+                'đang cập nhật',
+                'sẽ cập nhật',
+                'null',
+                'undefined'
+            ];
+            // Check exact phrases first
+            for (const p of placeholders) {
+                if (motaLower === p || motaLower.startsWith(p + ' ') || motaLower.endsWith(' ' + p) || motaLower.includes(' ' + p + ' ')) {
+                    return false;
+                }
+            }
+            // Special case: "na" chỉ match nếu là standalone word (không phải part của "java", "python", etc.)
+            // "n/a" đã được check ở trên
+            const naRegex = /\bna\b/;
+            if (naRegex.test(motaLower)) {
+                return false;
+            }
+            return true;
+        };
 
         for (const job of filteredJobs) {
             let jdEmbedding = jdEmbeddings[job.id]?.embedding;
@@ -305,8 +332,10 @@ const findMatchingJobs = async (userId, filters = {}) => {
                 // 1. Tieude (JobPosting) - Title
                 if (job.Tieude) parts.push(job.Tieude);
                 
-                // 2. Mota (JobPosting) - Description
-                if (job.Mota) parts.push(job.Mota);
+                // 2. Mota (JobPosting) - Description (chỉ thêm nếu không phải placeholder)
+                if (job.Mota && isValidMota(job.Mota)) {
+                    parts.push(job.Mota);
+                }
                 
                 // 3. Diadiem (JobPosting) - Location
                 if (job.Diadiem) {
@@ -326,35 +355,16 @@ const findMatchingJobs = async (userId, filters = {}) => {
                     parts.push(`Mức lương: ${salaryParts.join(' - ')} VNĐ`);
                 }
                 
-                // 6. TenHinhThuc (Format) - Work format
-                if (job.Format && job.Format.TenHinhThuc) {
-                    parts.push(`Hình thức làm việc: ${job.Format.TenHinhThuc}`);
-                }
-                
-                // 7. Majors (Ngành nghề) - Domain/Stack
+                // 6. Majors (Ngành nghề) - Domain/Stack
                 const majors = job.Majors || job.majors || [];
                 if (majors.length > 0) {
                     const majorNames = majors.map(m => m.TenNghanhNghe).join(', ');
                     parts.push(`Ngành nghề: ${majorNames}`);
                 }
                 
-                // 8. Company info (Company) - Company details
-                if (job.Company) {
-                    if (job.Company.Tencongty) {
-                        parts.push(`Công ty: ${job.Company.Tencongty}`);
-                    }
-                    if (job.Company.Nganhnghe) {
-                        parts.push(`Lĩnh vực công ty: ${job.Company.Nganhnghe}`);
-                    }
-                    if (job.Company.Quymo) {
-                        parts.push(`Quy mô: ${job.Company.Quymo}`);
-                    }
-                    if (job.Company.Diachi) {
-                        parts.push(`Địa chỉ công ty: ${job.Company.Diachi}`);
-                    }
-                    if (job.Company.Mota) {
-                        parts.push(`Mô tả công ty: ${job.Company.Mota}`);
-                    }
+                // 7. Company name only (Company) - Chỉ lấy tên công ty
+                if (job.Company && job.Company.Tencongty) {
+                    parts.push(`Công ty: ${job.Company.Tencongty}`);
                 }
                 
                 return parts.filter(Boolean).join('. ');
@@ -388,14 +398,34 @@ const findMatchingJobs = async (userId, filters = {}) => {
 
             const similarity = cosineSimilarity(cvEmbedding, jdEmbedding);
             
+            // Penalty nếu JD text quá ngắn hoặc không có Mota thật sự
+            let adjustedSimilarity = similarity;
+            const hasValidMota = job.Mota && isValidMota(job.Mota);
+            
+            if (!hasValidMota && jdText.trim().length < MIN_COMPREHENSIVE_JD_LENGTH) {
+                // Chỉ penalty nếu KHÔNG có Mota VÀ JD text ngắn (< 400 chars)
+                // Nếu JD text đã dài (từ Company, Majors, etc.) thì không cần Mota cũng OK
+                adjustedSimilarity = similarity * 0.25;
+                console.warn(`⚠️ Job ${job.id} không có Mota hợp lệ VÀ JD ngắn → penalty: ${similarity.toFixed(3)} → ${adjustedSimilarity.toFixed(3)} (giảm 75%)`);
+            } else if (jdText.trim().length < MIN_JD_LENGTH) {
+                // Nếu JD text quá ngắn → penalty nhẹ (giảm 20%)
+                adjustedSimilarity = similarity * 0.8;
+                console.warn(`⚠️ Job ${job.id} có JD text quá ngắn (${jdText.length} < ${MIN_JD_LENGTH}) → penalty: ${similarity.toFixed(3)} → ${adjustedSimilarity.toFixed(3)}`);
+            }
+            
+            // Log nếu JD không có Mota nhưng đủ dài (không bị penalty)
+            if (!hasValidMota && jdText.trim().length >= MIN_COMPREHENSIVE_JD_LENGTH) {
+                console.log(`✅ Job ${job.id}: Không có Mota nhưng JD đủ dài (${jdText.length} chars) → không penalty`);
+            }
+            
             // Log JD text length và similarity để debug
-            if (jdText.trim().length < MIN_JD_LENGTH) {
-                console.log(`📊 Job ${job.id}: JD length=${jdText.length}, similarity=${similarity.toFixed(3)}`);
+            if (jdText.trim().length < MIN_JD_LENGTH || !hasValidMota) {
+                console.log(`📊 Job ${job.id}: JD length=${jdText.length}, hasValidMota=${hasValidMota}, similarity=${similarity.toFixed(3)} → adjusted=${adjustedSimilarity.toFixed(3)}`);
             }
 
             cosineMatches.push({
                 jobPosting: job,
-                cosineSimilarity: similarity,
+                cosineSimilarity: adjustedSimilarity, // Dùng adjusted similarity
                 jdText: jdText
             });
         }
@@ -434,18 +464,41 @@ const findMatchingJobs = async (userId, filters = {}) => {
                 const mlMatches = mlResults.map((mlResult, idx) => {
                     const originalMatch = top50Matches[mlResult.jdIndex];
                     const jdText = originalMatch.jdText;
+                    const job = originalMatch.jobPosting;
+                    const hasValidMota = job.Mota && isValidMota(job.Mota);
+                    
+                    // Apply penalty cho ML results nếu không có Mota hoặc JD quá ngắn
+                    let adjustedMatchScore = mlResult.matchScore;
+                    let adjustedScoreRatio = mlResult.scoreRatio;
+                    
+                    if (!hasValidMota && jdText.length < MIN_COMPREHENSIVE_JD_LENGTH) {
+                        // Chỉ penalty nếu KHÔNG có Mota VÀ JD text ngắn (< 400 chars)
+                        adjustedMatchScore = Math.round(mlResult.matchScore * 0.25);
+                        adjustedScoreRatio = mlResult.scoreRatio * 0.25;
+                        console.warn(`⚠️ [ML] Job ${job.id} không có Mota hợp lệ VÀ JD ngắn → penalty: ${mlResult.matchScore}% → ${adjustedMatchScore}% (giảm 75%)`);
+                    } else if (jdText.length < MIN_JD_LENGTH) {
+                        // Nếu JD text quá ngắn → penalty nhẹ (giảm 20%)
+                        adjustedMatchScore = Math.round(mlResult.matchScore * 0.8);
+                        adjustedScoreRatio = mlResult.scoreRatio * 0.8;
+                        console.warn(`⚠️ [ML] Job ${job.id} có JD text quá ngắn (${jdText.length} < ${MIN_JD_LENGTH}) → penalty: ${mlResult.matchScore}% → ${adjustedMatchScore}%`);
+                    }
+                    
+                    // Log nếu JD không có Mota nhưng đủ dài (không bị penalty)
+                    if (!hasValidMota && jdText.length >= MIN_COMPREHENSIVE_JD_LENGTH) {
+                        console.log(`✅ [ML] Job ${job.id}: Không có Mota nhưng JD đủ dài (${jdText.length} chars) → không penalty, score = ${adjustedMatchScore}%`);
+                    }
                     
                     // Log nếu JD text ngắn và match score thấp
-                    if (jdText.length < MIN_JD_LENGTH && mlResult.matchScore < 60) {
-                        console.log(`📊 Job ${originalMatch.jobPosting.id}: JD ngắn (${jdText.length} chars) → matchScore=${mlResult.matchScore}%`);
+                    if (jdText.length < MIN_JD_LENGTH || !hasValidMota) {
+                        console.log(`📊 [ML] Job ${job.id}: JD length=${jdText.length}, hasValidMota=${hasValidMota}, matchScore=${mlResult.matchScore}% → adjusted=${adjustedMatchScore}%`);
                     }
                     
                     return {
-                        jobPosting: originalMatch.jobPosting,
-                        matchScore: mlResult.matchScore, // 0-100 từ ML model
-                        scoreRatio: mlResult.scoreRatio, // 0-1 từ ML model
+                        jobPosting: job,
+                        matchScore: adjustedMatchScore, // Adjusted từ ML model
+                        scoreRatio: adjustedScoreRatio, // Adjusted từ ML model
                         cosineSimilarity: originalMatch.cosineSimilarity,
-                        reasons: generateMatchReasons(originalMatch.jobPosting, mlResult.matchScore, cvText)
+                        reasons: generateMatchReasons(job, adjustedMatchScore, cvText)
                     };
                 });
 
@@ -476,12 +529,22 @@ const findMatchingJobs = async (userId, filters = {}) => {
             }));
         }
 
-        // Step 7: Cache results
+        // Step 7: Filter chỉ giữ lại jobs có match score > 50%
+        const MIN_MATCH_SCORE = 50;
+        const filteredMatches = finalMatches.filter(m => m.matchScore > MIN_MATCH_SCORE);
+        
+        if (filteredMatches.length === 0 && finalMatches.length > 0) {
+            console.warn(`⚠️ [CV MATCHING] Không có job nào có match score > ${MIN_MATCH_SCORE}% (top score: ${finalMatches[0]?.matchScore || 0}%)`);
+        } else if (filteredMatches.length < finalMatches.length) {
+            console.log(`📊 [CV MATCHING] Lọc bỏ ${finalMatches.length - filteredMatches.length} jobs có match score ≤ ${MIN_MATCH_SCORE}%`);
+        }
+
+        // Step 8: Cache results
         cache.set(cacheKey, {
             timestamp: Date.now(),
             data: {
-                EM: `Tìm thấy ${finalMatches.length} công việc phù hợp`,
-                DT: finalMatches
+                EM: `Tìm thấy ${filteredMatches.length} công việc phù hợp`,
+                DT: filteredMatches
             }
         });
 
@@ -495,12 +558,14 @@ const findMatchingJobs = async (userId, filters = {}) => {
             }
         }
 
-        console.log(`✅ [CV MATCHING] Hoàn thành - ${finalMatches.length} jobs phù hợp nhất`);
+        console.log(`✅ [CV MATCHING] Hoàn thành - ${filteredMatches.length} jobs phù hợp nhất (match score > ${MIN_MATCH_SCORE}%)`);
 
         return {
-            EM: `Tìm thấy ${finalMatches.length} công việc phù hợp`,
+            EM: filteredMatches.length > 0 
+                ? `Tìm thấy ${filteredMatches.length} công việc phù hợp (match score > ${MIN_MATCH_SCORE}%)`
+                : `Không tìm thấy công việc nào có độ phù hợp > ${MIN_MATCH_SCORE}%`,
             EC: 0,
-            DT: finalMatches
+            DT: filteredMatches
         };
     } catch (error) {
         console.error('Error in findMatchingJobs:', error);
