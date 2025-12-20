@@ -24,16 +24,90 @@ const getMeetingsForHr = async (userId, filters = {}) => {
             };
         }
 
-        // Build where clause
-        const whereClause = {
-            hrUserId: userId
-        };
-
-        if (filters.status && filters.status !== 'all') {
-            whereClause.status = filters.status;
+        // Parse userId to integer if it's a string
+        const parsedUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+        if (isNaN(parsedUserId)) {
+            return {
+                EM: 'userId không hợp lệ!',
+                EC: 2,
+                DT: null
+            };
         }
 
-        if (filters.jobApplicationId) {
+        // Build where clause - always include hrUserId
+        const whereClause = {
+            hrUserId: parsedUserId
+        };
+
+        // Handle status filter with combined logic (status + invitation_status)
+        if (filters.status && filters.status !== 'all') {
+            const statusFilter = filters.status;
+            
+            switch (statusFilter) {
+                case 'WAITING_RESPONSE':
+                    // status IN ['pending', 'rescheduled'] AND invitation_status = 'SENT'
+                    whereClause.status = { [Op.in]: ['pending', 'rescheduled'] };
+                    whereClause.invitation_status = 'SENT';
+                    break;
+                
+                case 'CONFIRMED':
+                    // status IN ['pending', 'rescheduled'] AND invitation_status = 'CONFIRMED'
+                    whereClause.status = { [Op.in]: ['pending', 'rescheduled'] };
+                    whereClause.invitation_status = 'CONFIRMED';
+                    break;
+                
+                case 'RESCHEDULE':
+                    // invitation_status = 'RESCHEDULE_REQUESTED' (ignore status)
+                    whereClause.invitation_status = 'RESCHEDULE_REQUESTED';
+                    break;
+                
+                case 'COMPLETED':
+                    // status = 'done' OR invitation_status = 'COMPLETED'
+                    // Store original whereClause conditions
+                    const completedConditions = [
+                        { hrUserId: parsedUserId },
+                        {
+                            [Op.or]: [
+                                { status: 'done' },
+                                { invitation_status: 'COMPLETED' }
+                            ]
+                        }
+                    ];
+                    // Add jobApplicationId if exists
+                    if (filters.jobApplicationId) {
+                        completedConditions.push({ jobApplicationId: filters.jobApplicationId });
+                    }
+                    whereClause[Op.and] = completedConditions;
+                    break;
+                
+                case 'CANCELLED':
+                    // status = 'cancel' OR invitation_status = 'CANCELLED'
+                    // Store original whereClause conditions
+                    const cancelledConditions = [
+                        { hrUserId: parsedUserId },
+                        {
+                            [Op.or]: [
+                                { status: 'cancel' },
+                                { invitation_status: 'CANCELLED' }
+                            ]
+                        }
+                    ];
+                    // Add jobApplicationId if exists
+                    if (filters.jobApplicationId) {
+                        cancelledConditions.push({ jobApplicationId: filters.jobApplicationId });
+                    }
+                    whereClause[Op.and] = cancelledConditions;
+                    break;
+                
+                default:
+                    // For other status values (e.g., 'running', 'pending', etc.), filter by status only
+                    whereClause.status = statusFilter;
+                    break;
+            }
+        }
+
+        // Add jobApplicationId filter (only if not already included in Op.and)
+        if (filters.jobApplicationId && !whereClause[Op.and]) {
             whereClause.jobApplicationId = filters.jobApplicationId;
         }
 
@@ -533,7 +607,7 @@ const createMeeting = async (userId, data) => {
             ]
         });
 
-        // Send email notification
+        // Generate interview token and send email notification
         try {
             // Dynamic import for ES6 module
             const emailServiceModule = await import('./emailService.js');
@@ -554,6 +628,7 @@ const createMeeting = async (userId, data) => {
             const meetingInfo = {
                 roomName: roomName,
                 scheduledAt: scheduledAt,
+                meetingId: meeting.id,
                 interviewRound: fullMeeting.InterviewRound ? {
                     roundNumber: fullMeeting.InterviewRound.roundNumber,
                     title: fullMeeting.InterviewRound.title,
@@ -567,13 +642,24 @@ const createMeeting = async (userId, data) => {
             const meetingLink = `${baseUrl}/meeting/${roomName}`;
 
             if (emailService && emailService.sendMeetingInvitationEmail) {
-                await emailService.sendMeetingInvitationEmail(
+                // Generate token and send email
+                const emailResult = await emailService.sendMeetingInvitationEmail(
                     candidateInfo,
                     jobInfo,
                     companyInfo,
                     meetingInfo,
                     meetingLink
                 );
+                
+                // Save the generated token to the meeting
+                if (emailResult && emailResult.token) {
+                    await meeting.update({
+                        interview_token: emailResult.token,
+                        invitation_status: 'SENT'
+                    });
+                    console.log('✅ Đã lưu interview_token cho meeting:', meeting.id);
+                }
+                
                 console.log('✅ Đã gửi email thông báo meeting đến:', candidateInfo.email);
             } else {
                 console.warn('⚠️ EmailService không khả dụng, bỏ qua gửi email');
@@ -664,8 +750,12 @@ const updateMeetingStatus = async (meetingId, userId, status, userRole = 'hr') =
  * Update meeting (reschedule, add feedback, etc.)
  */
 const updateMeeting = async (meetingId, userId, data) => {
+    const transaction = await db.sequelize.transaction();
+    let transactionCommitted = false;
+    
     try {
         if (!meetingId || !userId) {
+            await transaction.rollback();
             return {
                 EM: 'Thiếu thông tin!',
                 EC: 1,
@@ -677,7 +767,252 @@ const updateMeeting = async (meetingId, userId, data) => {
             where: {
                 id: meetingId,
                 hrUserId: userId
+            },
+            include: [
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id'],
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty']
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: db.User,
+                    as: 'Candidate',
+                    attributes: ['id', 'Hoten', 'email']
+                },
+                {
+                    model: db.InterviewRound,
+                    as: 'InterviewRound',
+                    attributes: ['id', 'roundNumber', 'title', 'duration', 'description', 'jobPostingId']
+                }
+            ],
+            transaction
+        });
+
+        if (!meeting) {
+            await transaction.rollback();
+            return {
+                EM: 'Không tìm thấy meeting hoặc bạn không có quyền!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Check if evaluation is locked (already evaluated or approved)
+        // If trying to update score/feedback/notes and evaluation is locked, reject
+        if (meeting.evaluation_locked && (data.score !== undefined || data.feedback !== undefined || data.notes !== undefined)) {
+            await transaction.rollback();
+            return {
+                EM: 'Đánh giá đã bị khóa! Không thể chỉnh sửa đánh giá sau khi đã đánh giá hoặc đã duyệt ứng viên.',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Check if already evaluated (has score and feedback) and trying to update evaluation
+        if (meeting.score !== null && meeting.feedback !== null && 
+            (data.score !== undefined || data.feedback !== undefined || data.notes !== undefined) &&
+            !data.approveCandidate) {
+            // If already evaluated but not locked, set lock when updating
+            // This prevents re-evaluation
+        }
+
+        const updateData = {};
+
+        if (data.scheduledAt) {
+            updateData.scheduledAt = new Date(data.scheduledAt);
+            if (meeting.status === 'cancel' || meeting.status === 'done') {
+                updateData.status = 'rescheduled';
             }
+        }
+
+        // If updating evaluation fields (score, feedback, notes), set evaluation_locked
+        if (data.score !== undefined || data.feedback !== undefined || data.notes !== undefined) {
+            if (data.score !== undefined) {
+                updateData.score = data.score;
+            }
+            if (data.feedback !== undefined) {
+                updateData.feedback = data.feedback;
+            }
+            if (data.notes !== undefined) {
+                updateData.notes = data.notes;
+            }
+            // Lock evaluation when first evaluation is done (has both score and feedback)
+            if (!meeting.evaluation_locked && 
+                data.score !== undefined && 
+                data.feedback !== undefined && 
+                data.feedback.trim() !== '') {
+                updateData.evaluation_locked = true;
+            }
+        }
+
+        // If approveCandidate is true, always lock evaluation
+        if (data.approveCandidate === true) {
+            updateData.evaluation_locked = true;
+        }
+
+        await meeting.update(updateData, { transaction });
+
+        // If approveCandidate is true, send email
+        if (data.approveCandidate === true) {
+
+            // Send email to candidate about passing the interview round
+            try {
+                const emailServiceModule = await import('./emailService.js');
+                const emailService = emailServiceModule.default;
+
+                if (meeting.Candidate && meeting.JobApplication?.JobPosting && meeting.InterviewRound) {
+                    const candidateInfo = {
+                        email: meeting.Candidate.email,
+                        Hoten: meeting.Candidate.Hoten || 'Ứng viên'
+                    };
+                    const jobInfo = {
+                        Tieude: meeting.JobApplication.JobPosting.Tieude || 'Vị trí tuyển dụng'
+                    };
+                    const companyInfo = {
+                        Tencongty: meeting.JobApplication.JobPosting.Company?.Tencongty || 'Công ty'
+                    };
+                    const currentRoundInfo = {
+                        roundNumber: meeting.InterviewRound.roundNumber,
+                        title: meeting.InterviewRound.title
+                    };
+
+                    // Find next interview round
+                    const nextInterviewRound = await db.InterviewRound.findOne({
+                        where: {
+                            jobPostingId: meeting.InterviewRound.jobPostingId,
+                            roundNumber: meeting.InterviewRound.roundNumber + 1,
+                            isActive: true
+                        },
+                        transaction
+                    });
+
+                    if (nextInterviewRound) {
+                        const nextRoundInfo = {
+                            roundNumber: nextInterviewRound.roundNumber,
+                            title: nextInterviewRound.title,
+                            duration: nextInterviewRound.duration,
+                            description: nextInterviewRound.description
+                        };
+                        
+                        await emailService.sendInterviewPassEmail(
+                            candidateInfo,
+                            jobInfo,
+                            companyInfo,
+                            currentRoundInfo,
+                            nextRoundInfo
+                        );
+                        console.log(`✅ Đã gửi email thông báo đã đậu vòng ${currentRoundInfo.roundNumber}, chuẩn bị vòng ${nextRoundInfo.roundNumber} đến:`, candidateInfo.email);
+                    } else {
+                        // No next round - candidate passed all rounds
+                        // You might want to send a different email here
+                        console.log(`ℹ️ Ứng viên đã vượt qua tất cả các vòng phỏng vấn. Không có vòng tiếp theo.`);
+                    }
+                } else {
+                    console.warn('⚠️ Thiếu thông tin để gửi email thông báo đậu phỏng vấn');
+                }
+            } catch (emailError) {
+                console.error('⚠️ Không thể gửi email thông báo đậu phỏng vấn:', emailError);
+                // Don't fail the transaction if email fails
+            }
+        }
+
+        await transaction.commit();
+        transactionCommitted = true;
+
+        // Reload meeting to get latest data (after commit, no transaction needed)
+        await meeting.reload();
+
+        return {
+            EM: 'Cập nhật meeting thành công!',
+            EC: 0,
+            DT: meeting.toJSON()
+        };
+    } catch (error) {
+        if (!transactionCommitted) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Error rolling back transaction:', rollbackError);
+            }
+        }
+        console.error('Error in updateMeeting:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật meeting!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Update invitation status (for HR to handle candidate responses)
+ * Actions: 'APPROVE_RESCHEDULE', 'REJECT_RESCHEDULE', 'RESCHEDULE'
+ */
+const updateInvitationStatus = async (meetingId, userId, action, data = {}) => {
+    try {
+        if (!meetingId || !userId || !action) {
+            return {
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const meeting = await db.Meeting.findOne({
+            where: {
+                id: meetingId,
+                hrUserId: userId
+            },
+            include: [
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id'],
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty']
+                                }
+                            ]
+                        },
+                        {
+                            model: db.Record,
+                            include: [
+                                {
+                                    model: db.User,
+                                    attributes: ['id', 'Hoten', 'email']
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: db.User,
+                    as: 'Candidate',
+                    attributes: ['id', 'Hoten', 'email']
+                },
+                {
+                    model: db.InterviewRound,
+                    as: 'InterviewRound',
+                    attributes: ['id', 'roundNumber', 'title', 'duration']
+                }
+            ]
         });
 
         if (!meeting) {
@@ -690,36 +1025,229 @@ const updateMeeting = async (meetingId, userId, data) => {
 
         const updateData = {};
 
-        if (data.scheduledAt) {
-            updateData.scheduledAt = new Date(data.scheduledAt);
-            if (meeting.status === 'cancel' || meeting.status === 'done') {
-                updateData.status = 'rescheduled';
-            }
-        }
+        // Handle different actions
+        switch (action) {
+            case 'APPROVE_RESCHEDULE':
+                // HR approves reschedule request - update time and reset status
+                if (!data.scheduledAt) {
+                    return {
+                        EM: 'Vui lòng cung cấp thời gian mới cho buổi phỏng vấn!',
+                        EC: 3,
+                        DT: null
+                    };
+                }
+                if (meeting.invitation_status !== 'RESCHEDULE_REQUESTED') {
+                    return {
+                        EM: 'Meeting này không có yêu cầu đổi lịch!',
+                        EC: 4,
+                        DT: null
+                    };
+                }
+                updateData.scheduledAt = new Date(data.scheduledAt);
+                updateData.invitation_status = 'SENT';
+                // Keep rejection_count unchanged - don't reset it
+                // This ensures we track total rejections across all reschedules
+                updateData.candidate_reschedule_reason = null;
+                updateData.status = meeting.status === 'cancel' ? 'rescheduled' : meeting.status;
+                
+                // Send email notification to candidate about new schedule
+                try {
+                    const emailServiceModule = await import('./emailService.js');
+                    const emailService = emailServiceModule.default;
 
-        if (data.score !== undefined) {
-            updateData.score = data.score;
-        }
+                    if (meeting.Candidate && meeting.JobApplication?.JobPosting) {
+                        const candidateInfo = {
+                            id: meeting.Candidate.id,
+                            email: meeting.Candidate.email,
+                            Hoten: meeting.Candidate.Hoten || 'Ứng viên'
+                        };
+                        const jobInfo = {
+                            id: meeting.JobApplication.JobPosting.id,
+                            Tieude: meeting.JobApplication.JobPosting.Tieude
+                        };
+                        const companyInfo = {
+                            Tencongty: meeting.JobApplication.JobPosting.Company?.Tencongty || 'Công ty'
+                        };
+                        const meetingInfo = {
+                            roomName: meeting.roomName,
+                            scheduledAt: data.scheduledAt,
+                            meetingId: meeting.id,
+                            interviewRound: meeting.InterviewRound ? {
+                                roundNumber: meeting.InterviewRound.roundNumber,
+                                title: meeting.InterviewRound.title,
+                                duration: meeting.InterviewRound.duration
+                            } : null
+                        };
+                        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+                        const meetingLink = `${baseUrl}/meeting/${meeting.roomName}`;
 
-        if (data.feedback !== undefined) {
-            updateData.feedback = data.feedback;
-        }
+                        // Generate new token for rescheduled meeting
+                        if (emailService && emailService.sendMeetingInvitationEmail) {
+                            const emailResult = await emailService.sendMeetingInvitationEmail(
+                                candidateInfo,
+                                jobInfo,
+                                companyInfo,
+                                meetingInfo,
+                                meetingLink
+                            );
+                            
+                            if (emailResult && emailResult.token) {
+                                updateData.interview_token = emailResult.token;
+                            }
+                        }
+                    }
+                } catch (emailError) {
+                    console.error('⚠️ Không thể gửi email thông báo đổi lịch:', emailError);
+                    // Don't fail the update if email fails
+                }
+                break;
 
-        if (data.notes !== undefined) {
-            updateData.notes = data.notes;
+            case 'REJECT_RESCHEDULE':
+                // HR rejects reschedule request - cancel the meeting
+                if (meeting.invitation_status !== 'RESCHEDULE_REQUESTED') {
+                    return {
+                        EM: 'Meeting này không có yêu cầu đổi lịch!',
+                        EC: 4,
+                        DT: null
+                    };
+                }
+                updateData.invitation_status = 'CANCELLED';
+                updateData.status = 'cancel';
+                
+                // Optionally update job application status
+                if (data.updateApplicationStatus) {
+                    // Find reject status
+                    const failedStatus = await db.ApplicationStatus.findOne({
+                        where: {
+                            TenTrangThai: {
+                                [Op.in]: ['Rớt phỏng vấn', 'Từ chối', 'Hủy', 'INTERVIEW_FAILED', 'Rejected']
+                            }
+                        }
+                    });
+                    if (failedStatus && meeting.JobApplication) {
+                        await meeting.JobApplication.update({
+                            applicationStatusId: failedStatus.id
+                        });
+                    }
+                }
+                break;
+
+            case 'RESCHEDULE':
+                // HR manually reschedules (not in response to candidate request)
+                if (!data.scheduledAt) {
+                    return {
+                        EM: 'Vui lòng cung cấp thời gian mới cho buổi phỏng vấn!',
+                        EC: 3,
+                        DT: null
+                    };
+                }
+                updateData.scheduledAt = new Date(data.scheduledAt);
+                updateData.invitation_status = 'SENT';
+                updateData.status = meeting.status === 'cancel' ? 'rescheduled' : meeting.status;
+                
+                // Send email notification
+                try {
+                    const emailServiceModule = await import('./emailService.js');
+                    const emailService = emailServiceModule.default;
+
+                    if (meeting.Candidate && meeting.JobApplication?.JobPosting) {
+                        const candidateInfo = {
+                            id: meeting.Candidate.id,
+                            email: meeting.Candidate.email,
+                            Hoten: meeting.Candidate.Hoten || 'Ứng viên'
+                        };
+                        const jobInfo = {
+                            id: meeting.JobApplication.JobPosting.id,
+                            Tieude: meeting.JobApplication.JobPosting.Tieude
+                        };
+                        const companyInfo = {
+                            Tencongty: meeting.JobApplication.JobPosting.Company?.Tencongty || 'Công ty'
+                        };
+                        const meetingInfo = {
+                            roomName: meeting.roomName,
+                            scheduledAt: data.scheduledAt,
+                            meetingId: meeting.id,
+                            interviewRound: meeting.InterviewRound ? {
+                                roundNumber: meeting.InterviewRound.roundNumber,
+                                title: meeting.InterviewRound.title,
+                                duration: meeting.InterviewRound.duration
+                            } : null
+                        };
+                        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+                        const meetingLink = `${baseUrl}/meeting/${meeting.roomName}`;
+
+                        if (emailService && emailService.sendMeetingInvitationEmail) {
+                            const emailResult = await emailService.sendMeetingInvitationEmail(
+                                candidateInfo,
+                                jobInfo,
+                                companyInfo,
+                                meetingInfo,
+                                meetingLink
+                            );
+                            
+                            if (emailResult && emailResult.token) {
+                                updateData.interview_token = emailResult.token;
+                            }
+                        }
+                    }
+                } catch (emailError) {
+                    console.error('⚠️ Không thể gửi email thông báo đổi lịch:', emailError);
+                }
+                break;
+
+            default:
+                return {
+                    EM: 'Action không hợp lệ!',
+                    EC: 5,
+                    DT: null
+                };
         }
 
         await meeting.update(updateData);
 
+        // Get updated meeting with all relations
+        const updatedMeeting = await db.Meeting.findOne({
+            where: { id: meetingId },
+            include: [
+                {
+                    model: db.InterviewRound,
+                    as: 'InterviewRound',
+                    attributes: ['id', 'roundNumber', 'title', 'duration']
+                },
+                {
+                    model: db.JobApplication,
+                    as: 'JobApplication',
+                    attributes: ['id'],
+                    include: [
+                        {
+                            model: db.JobPosting,
+                            attributes: ['id', 'Tieude'],
+                            include: [
+                                {
+                                    model: db.Company,
+                                    attributes: ['id', 'Tencongty']
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: db.User,
+                    as: 'Candidate',
+                    attributes: ['id', 'Hoten', 'email', 'SDT']
+                }
+            ]
+        });
+
         return {
-            EM: 'Cập nhật meeting thành công!',
+            EM: 'Cập nhật trạng thái lời mời thành công!',
             EC: 0,
-            DT: meeting.toJSON()
+            DT: updatedMeeting.toJSON()
         };
     } catch (error) {
-        console.error('Error in updateMeeting:', error);
+        console.error('Error in updateInvitationStatus:', error);
         return {
-            EM: 'Có lỗi xảy ra khi cập nhật meeting!',
+            EM: 'Có lỗi xảy ra khi cập nhật trạng thái lời mời!',
             EC: -1,
             DT: null
         };
@@ -989,6 +1517,7 @@ module.exports = {
     createMeeting,
     updateMeetingStatus,
     updateMeeting,
+    updateInvitationStatus,
     cancelMeeting,
     getCandidatesByJobPosting,
     getLatestMeetingByJobPosting

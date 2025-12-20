@@ -105,6 +105,35 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
       comment: 'Ghi chú thêm'
+    },
+    invitation_status: {
+      type: DataTypes.ENUM('SENT', 'CONFIRMED', 'RESCHEDULE_REQUESTED', 'CANCELLED', 'COMPLETED'),
+      defaultValue: 'SENT',
+      allowNull: false,
+      comment: 'Trạng thái phản hồi của ứng viên về lời mời phỏng vấn'
+    },
+    rejection_count: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+      comment: 'Số lần từ chối/đổi lịch của ứng viên'
+    },
+    candidate_reschedule_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: 'Lý do từ chối/đổi lịch của ứng viên'
+    },
+    interview_token: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      unique: true,
+      comment: 'Token định danh duy nhất cho link trong email (JWT)'
+    },
+    evaluation_locked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+      comment: 'Khóa đánh giá - không cho phép chỉnh sửa khi đã đánh giá hoặc đã duyệt ứng viên'
     }
   }, {
     sequelize,
@@ -131,6 +160,10 @@ module.exports = (sequelize, DataTypes) => {
       },
       {
         fields: ['roomName']
+      },
+      {
+        fields: ['interview_token'],
+        unique: true
       }
     ]
   });

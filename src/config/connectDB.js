@@ -14,7 +14,7 @@ const pool = mysql.createPool({
 });
 
 
-const sequelize = new Sequelize('jwt', 'root', null, {
+const sequelize = new Sequelize('qltvl', 'root', null, {
     host: 'localhost',
     dialect: 'mysql'
 });

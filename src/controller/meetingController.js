@@ -13,18 +13,28 @@ const getMeetingsForHr = async (req, res) => {
             });
         }
 
+        // Parse userId as integer
+        const parsedUserId = parseInt(userId, 10);
+        if (isNaN(parsedUserId)) {
+            return res.status(400).json({
+                EM: 'userId không hợp lệ!',
+                EC: 2,
+                DT: null
+            });
+        }
+
         const filters = {};
         if (status && status !== 'all') {
             filters.status = status;
         }
         if (jobApplicationId) {
-            filters.jobApplicationId = jobApplicationId;
+            filters.jobApplicationId = parseInt(jobApplicationId, 10);
         }
         if (jobPostingId) {
-            filters.jobPostingId = parseInt(jobPostingId);
+            filters.jobPostingId = parseInt(jobPostingId, 10);
         }
 
-        const data = await meetingService.getMeetingsForHr(userId, filters);
+        const data = await meetingService.getMeetingsForHr(parsedUserId, filters);
 
         return res.status(data.EC === 0 ? 200 : 400).json({
             EM: data.EM,
@@ -231,6 +241,42 @@ const updateMeeting = async (req, res) => {
     }
 };
 
+const updateInvitationStatus = async (req, res) => {
+    try {
+        const { meetingId } = req.params;
+        const { userId } = req.query;
+        const { action, scheduledAt, updateApplicationStatus } = req.body;
+
+        if (!userId || !meetingId || !action) {
+            return res.status(400).json({
+                EM: 'Thiếu thông tin!',
+                EC: 1,
+                DT: null
+            });
+        }
+
+        const data = {
+            scheduledAt,
+            updateApplicationStatus
+        };
+
+        const result = await meetingService.updateInvitationStatus(meetingId, userId, action, data);
+
+        return res.status(result.EC === 0 ? 200 : 400).json({
+            EM: result.EM,
+            EC: result.EC,
+            DT: result.DT
+        });
+    } catch (error) {
+        console.error('Error in updateInvitationStatus controller:', error);
+        return res.status(500).json({
+            EM: 'Lỗi từ server!',
+            EC: -1,
+            DT: null
+        });
+    }
+};
+
 const cancelMeeting = async (req, res) => {
     try {
         const { meetingId } = req.params;
@@ -331,6 +377,7 @@ module.exports = {
     createMeeting,
     updateMeetingStatus,
     updateMeeting,
+    updateInvitationStatus,
     cancelMeeting,
     getCandidatesByJobPosting,
     getLatestMeetingByJobPosting

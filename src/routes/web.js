@@ -13,6 +13,7 @@ import testSubmissionController from '../controller/testSubmissionController';
 import violationController from '../controller/violationController';
 import interviewRoundController from '../controller/interviewRoundController';
 import meetingController from '../controller/meetingController';
+import interviewController from '../controller/interviewController';
 import questionBankController from '../controller/questionBankController';
 import trainingDataController from '../controller/trainingDataController';
 import cvMatchingController from '../controller/cvMatchingController.js';
@@ -158,10 +159,15 @@ const initWebRoutes = (app) => {
     app.post("/api/hr/meetings", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.createMeeting);
     app.put("/api/meetings/:meetingId/status", verifyJWT.verifyJWT, meetingController.updateMeetingStatus);
     app.put("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.updateMeeting);
+    app.put("/api/hr/meetings/:meetingId/invitation-status", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.updateInvitationStatus);
     app.delete("/api/hr/meetings/:meetingId", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.cancelMeeting);
     // API lấy danh sách ứng viên và meeting gần nhất theo JobPosting
     app.get("/api/hr/meetings/candidates", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getCandidatesByJobPosting);
     app.get("/api/hr/meetings/latest", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getLatestMeetingByJobPosting);
+
+    // API Interview Response (Public - No JWT required, uses interview_token)
+    app.get("/api/interview/verify/:token", interviewController.verifyInterviewToken);
+    app.post("/api/interview/response", interviewController.handleInterviewResponse);
 
     // API Application Documents (Require JWT)
     const applicationDocumentController = require('../controller/applicationDocumentController');
