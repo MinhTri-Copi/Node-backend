@@ -17,6 +17,7 @@ import interviewController from '../controller/interviewController';
 import questionBankController from '../controller/questionBankController';
 import trainingDataController from '../controller/trainingDataController';
 import cvMatchingController from '../controller/cvMatchingController.js';
+import cvReviewController from '../controller/cvReviewController.js';
 import upload from '../middleware/uploadCV';
 import uploadQuestionBank from '../middleware/uploadQuestionBank';
 import verifyJWT from '../middleware/verifyJWT';
@@ -67,6 +68,9 @@ const initWebRoutes = (app) => {
     // API CV Matching (Require JWT)
     app.post("/api/candidate/find-matching-jobs", verifyJWT.verifyJWT, cvMatchingController.findMatchingJobsForCandidate);
     app.get("/api/candidate/job/:id/match-score", verifyJWT.verifyJWT, cvMatchingController.getJobMatchScore);
+    
+    // API CV Review (Require JWT)
+    app.post("/api/candidate/review-cv", verifyJWT.verifyJWT, cvReviewController.reviewCV);
 
     // API HR Dashboard (Require JWT + HR Role)
     app.get("/api/hr/dashboard", verifyJWT.verifyJWT, verifyJWT.requireRole(2), hrController.getDashboard);

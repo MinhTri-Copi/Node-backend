@@ -1,0 +1,68 @@
+{
+  "rubric": {
+    "summary": {
+      "weight": 15,
+      "description": "Điểm cho phần tóm tắt (Profile/Summary)",
+      "criteria": {
+        "excellent": "Ngắn gọn, rõ ràng, highlight đúng kỹ năng chính, nêu rõ vị trí IT",
+        "good": "Có nội dung nhưng hơi dài hoặc thiếu một số điểm",
+        "fair": "Có nội dung nhưng chung chung, không cụ thể",
+        "poor": "Thiếu hoặc quá chung chung, không có giá trị"
+      }
+    },
+    "skills": {
+      "weight": 20,
+      "description": "Điểm cho phần kỹ năng",
+      "criteria": {
+        "excellent": "Nhóm rõ ràng, liệt kê đầy đủ công nghệ cụ thể, phù hợp với vị trí IT",
+        "good": "Có nhóm nhưng thiếu một số công nghệ quan trọng",
+        "fair": "Liệt kê chung chung, không cụ thể",
+        "poor": "Thiếu hoặc quá ít kỹ năng"
+      }
+    },
+    "experience": {
+      "weight": 30,
+      "description": "Điểm cho phần kinh nghiệm (quan trọng nhất)",
+      "criteria": {
+        "excellent": "Có đầy đủ thời gian, công ty, công nghệ, và kết quả/metrics",
+        "good": "Có đủ thông tin cơ bản nhưng thiếu metrics",
+        "fair": "Thiếu một số thông tin quan trọng (thời gian, công nghệ, hoặc kết quả)",
+        "poor": "Thiếu nhiều thông tin, mô tả chung chung"
+      }
+    },
+    "education": {
+      "weight": 10,
+      "description": "Điểm cho phần học vấn",
+      "criteria": {
+        "excellent": "Format chuẩn, có đầy đủ thông tin (trường, ngành, thời gian)",
+        "good": "Có thông tin nhưng format chưa chuẩn",
+        "fair": "Thiếu một số thông tin",
+        "poor": "Thiếu hoặc format không rõ ràng"
+      }
+    },
+    "format": {
+      "weight": 15,
+      "description": "Điểm cho format và trình bày",
+      "criteria": {
+        "excellent": "Format nhất quán, không lỗi chính tả, cấu trúc rõ ràng",
+        "good": "Format tốt nhưng có một vài lỗi nhỏ",
+        "fair": "Format chưa nhất quán hoặc có lỗi chính tả",
+        "poor": "Format lộn xộn, nhiều lỗi"
+      }
+    },
+    "job_matching": {
+      "weight": 10,
+      "description": "Điểm cho độ phù hợp với JD (Job Description)",
+      "criteria": {
+        "excellent": "CV có đầy đủ kỹ năng và kinh nghiệm phù hợp với JD",
+        "good": "CV có phần lớn kỹ năng phù hợp nhưng thiếu một số điểm",
+        "fair": "CV có một số kỹ năng phù hợp nhưng thiếu nhiều yêu cầu",
+        "poor": "CV không phù hợp với JD"
+      }
+    }
+  },
+  "total_score": 100,
+  "passing_score": 70,
+  "ready_threshold": 80
+}
+

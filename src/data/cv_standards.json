@@ -1,0 +1,86 @@
+{
+  "profile": {
+    "summary": {
+      "description": "Phần tóm tắt ngắn gọn về ứng viên",
+      "requirements": [
+        "Ngắn gọn, 3-4 dòng",
+        "Nêu rõ vị trí IT mong muốn",
+        "Highlight kỹ năng chính",
+        "Tránh kể lể đời tư",
+        "Tránh nội dung chung chung, không cụ thể"
+      ],
+      "good_example": "Full-stack Developer với 3 năm kinh nghiệm phát triển web application. Thành thạo React, Node.js, và MongoDB. Đam mê xây dựng sản phẩm chất lượng cao và tối ưu hiệu suất.",
+      "bad_example": "Tôi là người chăm chỉ, có tinh thần trách nhiệm cao. Mong muốn tìm được công việc phù hợp."
+    }
+  },
+  "education": {
+    "format": {
+      "description": "Định dạng thông tin học vấn",
+      "requirements": [
+        "Tên trường – Ngành học – Thời gian",
+        "Có thể thêm GPA nếu tốt (>= 3.0/4.0 hoặc >= 7.5/10)",
+        "Liệt kê các khóa học liên quan nếu có"
+      ],
+      "good_example": "Đại học Công nghệ Thông tin – Kỹ thuật phần mềm (2021–2025)\nGPA: 3.6/4.0\nKhóa học: Cấu trúc dữ liệu, Thuật toán, Database, Web Development",
+      "bad_example": "Đại học CNTT\nHọc từ 2021 đến 2025"
+    }
+  },
+  "experience": {
+    "format": {
+      "description": "Định dạng thông tin kinh nghiệm",
+      "requirements": [
+        "Có thời gian làm việc (tháng/năm)",
+        "Có tên công ty và vị trí",
+        "Liệt kê công nghệ/skill sử dụng",
+        "Có kết quả đo lường được (metrics) nếu có",
+        "Sử dụng động từ hành động (Developed, Built, Optimized, etc.)"
+      ],
+      "good_example": "Software Engineer | ABC Company (01/2023 – Hiện tại)\n- Developed RESTful APIs using Node.js and Express, serving 10,000+ daily requests\n- Built responsive frontend with React, improving user engagement by 30%\n- Optimized database queries, reducing response time by 40%\nTechnologies: React, Node.js, MongoDB, PostgreSQL, Docker",
+      "bad_example": "Làm việc tại ABC Company\n- Làm backend\n- Làm frontend"
+    }
+  },
+  "skills": {
+    "format": {
+      "description": "Định dạng kỹ năng",
+      "requirements": [
+        "Nhóm theo category: Frontend, Backend, Database, Tools, etc.",
+        "Liệt kê cụ thể công nghệ (không chỉ tên category)",
+        "Có thể thêm mức độ (Beginner, Intermediate, Advanced) nếu muốn"
+      ],
+      "good_example": "Frontend: React, Vue.js, TypeScript, HTML5, CSS3, Tailwind CSS\nBackend: Node.js, Express, Python, Django, RESTful API\nDatabase: MySQL, PostgreSQL, MongoDB, Redis\nTools: Git, Docker, AWS, CI/CD",
+      "bad_example": "Frontend, Backend, Database"
+    }
+  },
+  "projects": {
+    "format": {
+      "description": "Định dạng dự án (nếu có)",
+      "requirements": [
+        "Tên dự án và mô tả ngắn",
+        "Công nghệ sử dụng",
+        "Link GitHub/Demo nếu có",
+        "Kết quả/impact nếu có"
+      ],
+      "good_example": "E-Commerce Platform (GitHub: github.com/user/project)\n- Full-stack web application với React và Node.js\n- Features: Authentication, Payment, Admin Dashboard\n- Technologies: React, Node.js, MongoDB, Stripe API",
+      "bad_example": "Làm website bán hàng"
+    }
+  },
+  "common_issues": {
+    "missing_info": [
+      "Thiếu thời gian làm việc",
+      "Thiếu tên công ty",
+      "Thiếu công nghệ cụ thể",
+      "Thiếu kết quả/metrics"
+    ],
+    "vague_descriptions": [
+      "Mô tả chung chung, không cụ thể",
+      "Không có số liệu đo lường",
+      "Sử dụng từ ngữ mơ hồ"
+    ],
+    "format_issues": [
+      "Format không nhất quán",
+      "Thiếu cấu trúc rõ ràng",
+      "Lỗi chính tả, ngữ pháp"
+    ]
+  }
+}
+
