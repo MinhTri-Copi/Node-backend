@@ -200,6 +200,39 @@ function loadCVExamples() {
 }
 
 /**
+ * Detect language of CV text (Vietnamese or English)
+ * Returns 'vi' for Vietnamese, 'en' for English
+ */
+function detectLanguage(text) {
+    if (!text || text.trim().length === 0) {
+        return 'en'; // Default to English
+    }
+
+    // Vietnamese characters (with diacritics)
+    const vietnameseChars = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/gi;
+    const vietnameseWords = ['và', 'của', 'cho', 'với', 'được', 'trong', 'từ', 'này', 'đã', 'một', 'các', 'là', 'có', 'để', 'sẽ', 'khi', 'nếu', 'hoặc', 'nhưng', 'vì', 'nên', 'thì', 'mà', 'đến', 'về', 'theo', 'sau', 'trước', 'trên', 'dưới', 'ngoài', 'trong', 'giữa', 'bên', 'phải', 'trái', 'trên', 'dưới'];
+    
+    // Count Vietnamese characters
+    const vietnameseCharMatches = (text.match(vietnameseChars) || []).length;
+    const totalChars = text.replace(/\s/g, '').length;
+    const vietnameseCharRatio = totalChars > 0 ? vietnameseCharMatches / totalChars : 0;
+    
+    // Count Vietnamese words
+    const lowerText = text.toLowerCase();
+    let vietnameseWordCount = 0;
+    vietnameseWords.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        const matches = lowerText.match(regex);
+        if (matches) vietnameseWordCount += matches.length;
+    });
+    
+    // Heuristic: If > 5% Vietnamese characters OR > 3 Vietnamese words, consider it Vietnamese
+    const isVietnamese = vietnameseCharRatio > 0.05 || vietnameseWordCount > 3;
+    
+    return isVietnamese ? 'vi' : 'en';
+}
+
+/**
  * Estimate token count (rough: 1 token ≈ 4 characters)
  */
 function estimateTokens(text) {
@@ -219,10 +252,19 @@ function truncateToTokens(text, maxTokens) {
  * Build prompt for LLM
  * Optimized to fit within context window (4096 tokens)
  */
-function buildPrompt(cvText, jdTexts, cvStandards, cvScoring, cvExamples = null) {
+function buildPrompt(cvText, jdTexts, cvStandards, cvScoring, cvExamples = null, language = 'en') {
+    // Detect language if not provided
+    const cvLanguage = language || detectLanguage(cvText);
+    
+    // Language-specific instructions
+    const languageInstruction = cvLanguage === 'vi' 
+        ? 'IMPORTANT: CV is in Vietnamese. All responses (suggestion, summary) must be in Vietnamese (Tiếng Việt).'
+        : 'IMPORTANT: CV is in English. All responses (suggestion, summary) must be in English.';
+    
     // Shortened system prompt to save tokens
     const systemPrompt = `You are an AI CV reviewer. Help candidates IMPROVE their CV, don't create new content.
-Rules: Only suggest improvements to existing content. Don't invent experiences/skills. Return JSON only.`;
+Rules: Only suggest improvements to existing content. Don't invent experiences/skills. Return JSON only.
+${languageInstruction}`;
 
     // Truncate CV text (max ~1500 tokens = 6000 chars)
     const MAX_CV_TOKENS = 1500;
@@ -262,6 +304,15 @@ Rules: Only suggest improvements to existing content. Don't invent experiences/s
         examplesSection += `[Example CV - Score: ${example.expected_score || 'N/A'}]\n${exampleText}...\n`;
     }
 
+    // Language-specific example
+    const exampleSuggestion = cvLanguage === 'vi'
+        ? '"Chỉ rõ công nghệ (ví dụ: Node.js) và kết quả (ví dụ: cải thiện thời gian phản hồi 40%)"'
+        : '"Specify technologies (e.g., Node.js) and measurable results (e.g., improved API response time by 40%)"';
+    
+    const exampleSummary = cvLanguage === 'vi'
+        ? '"Tóm tắt ngắn gọn bằng tiếng Việt"'
+        : '"Brief summary in English"';
+
     // Shortened user prompt to save tokens
     const userPrompt = `CV Standards:
 ${JSON.stringify(cvStandards, null, 1)}
@@ -273,19 +324,21 @@ Candidate CV:
 ${truncatedCV}
 ${jdSection}
 
+${languageInstruction}
+
 Tasks:
 1. Score CV 0-100 based on rubric
 2. Check format issues → suggest improvements to existing content
 3. Compare CV with JD → suggest how to better present existing content
-4. For each issue: section, original_text (quote exactly), suggestion (how to improve), severity (low/medium/high)
+4. For each issue: section, original_text (quote exactly from CV), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
 5. ready = true if score >= 80 and no high severity issues
 
-Return JSON only:
+Return JSON only (suggestion and summary must be in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}):
 {
   "score": 68,
   "ready": false,
-  "issues": [{"section": "experience", "original_text": "Worked on backend", "suggestion": "Specify tech (Node.js) and results (40% faster)", "severity": "high"}],
-  "summary": "Brief summary"
+  "issues": [{"section": "experience", "original_text": "Worked on backend", "suggestion": ${exampleSuggestion}, "severity": "high"}],
+  "summary": ${exampleSummary}
 }`;
 
     return { systemPrompt, userPrompt };
@@ -322,9 +375,13 @@ export async function reviewCV(cvText, jdTexts = []) {
         const loadTime = Date.now() - stepStartTime;
         console.log(`⏱️  Load standards/scoring/examples: ${loadTime}ms`);
 
+        // Detect CV language
+        const cvLanguage = detectLanguage(cvText);
+        console.log(`🌐 Detected CV language: ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}`);
+
         // Build prompt (include examples for few-shot learning)
         stepStartTime = Date.now();
-        const { systemPrompt, userPrompt } = buildPrompt(cvText, jdTextsLimited, cvStandards, cvScoring, cvExamples);
+        const { systemPrompt, userPrompt } = buildPrompt(cvText, jdTextsLimited, cvStandards, cvScoring, cvExamples, cvLanguage);
         const buildPromptTime = Date.now() - stepStartTime;
         console.log(`⏱️  Build prompt: ${buildPromptTime}ms`);
 
