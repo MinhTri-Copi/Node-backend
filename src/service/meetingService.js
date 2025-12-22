@@ -1509,6 +1509,302 @@ const getLatestMeetingByJobPosting = async (userId, jobPostingId) => {
     }
 };
 
+/**
+ * Start recording for a meeting (chỉ HR mới được phép)
+ */
+const startRecording = async (userId, meetingId) => {
+    try {
+        if (!userId || !meetingId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Get meeting and verify HR owns it
+        const meeting = await db.Meeting.findOne({
+            where: { id: meetingId },
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                attributes: ['id', 'recruiterId'],
+                include: [{
+                    model: db.Recruiter,
+                    attributes: ['id', 'userId']
+                }]
+            }]
+        });
+
+        if (!meeting) {
+            return {
+                EM: 'Không tìm thấy meeting!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Verify HR owns this meeting
+        if (meeting.hrUserId !== userId && meeting.JobPosting?.Recruiter?.userId !== userId) {
+            return {
+                EM: 'Bạn không có quyền bắt đầu recording cho meeting này!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Check if meeting is running
+        if (meeting.status !== 'running') {
+            return {
+                EM: 'Chỉ có thể bắt đầu recording khi meeting đang diễn ra!',
+                EC: 4,
+                DT: null
+            };
+        }
+
+        // Update recording status
+        await meeting.update({
+            recordingStatus: 'recording',
+            recordingStartedAt: new Date()
+        });
+
+        return {
+            EM: 'Bắt đầu recording thành công!',
+            EC: 0,
+            DT: {
+                meetingId: meeting.id,
+                recordingStatus: 'recording',
+                recordingStartedAt: meeting.recordingStartedAt
+            }
+        };
+    } catch (error) {
+        console.error('Error in startRecording:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi bắt đầu recording!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Stop recording and save recording URL
+ */
+const stopRecording = async (userId, meetingId, recordingUrl = null) => {
+    try {
+        if (!userId || !meetingId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        // Get meeting and verify HR owns it
+        const meeting = await db.Meeting.findOne({
+            where: { id: meetingId },
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                attributes: ['id', 'recruiterId'],
+                include: [{
+                    model: db.Recruiter,
+                    attributes: ['id', 'userId']
+                }]
+            }]
+        });
+
+        if (!meeting) {
+            return {
+                EM: 'Không tìm thấy meeting!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Verify HR owns this meeting
+        if (meeting.hrUserId !== userId && meeting.JobPosting?.Recruiter?.userId !== userId) {
+            return {
+                EM: 'Bạn không có quyền dừng recording cho meeting này!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        // Update recording status
+        const updateData = {
+            recordingStatus: recordingUrl ? 'ready' : 'processing',
+            recordingFinishedAt: new Date()
+        };
+
+        if (recordingUrl) {
+            updateData.recordingUrl = recordingUrl;
+        }
+
+        await meeting.update(updateData);
+
+        return {
+            EM: 'Dừng recording thành công!',
+            EC: 0,
+            DT: {
+                meetingId: meeting.id,
+                recordingStatus: updateData.recordingStatus,
+                recordingUrl: recordingUrl || meeting.recordingUrl,
+                recordingFinishedAt: meeting.recordingFinishedAt
+            }
+        };
+    } catch (error) {
+        console.error('Error in stopRecording:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi dừng recording!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Update recording URL (được gọi từ Jitsi webhook hoặc frontend sau khi recording ready)
+ */
+const updateRecordingUrl = async (meetingId, recordingUrl) => {
+    const startTime = Date.now();
+    try {
+        console.log('💾 ========== UPDATE RECORDING URL ==========');
+        console.log('   - Meeting ID:', meetingId);
+        console.log('   - Recording URL:', recordingUrl);
+        
+        if (!meetingId || !recordingUrl) {
+            console.error('❌ Missing required info');
+            console.error('   - Meeting ID:', meetingId);
+            console.error('   - Recording URL:', recordingUrl);
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        console.log('   - Finding meeting...');
+        const meeting = await db.Meeting.findByPk(meetingId);
+
+        if (!meeting) {
+            console.error('❌ Meeting not found:', meetingId);
+            return {
+                EM: 'Không tìm thấy meeting!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        console.log('   - Meeting found:', meeting.id);
+        console.log('   - Current recordingUrl:', meeting.recordingUrl);
+        console.log('   - Current recordingStatus:', meeting.recordingStatus);
+        console.log('   - Updating meeting...');
+
+        await meeting.update({
+            recordingUrl: recordingUrl,
+            recordingStatus: 'ready',
+            recordingFinishedAt: new Date()
+        });
+
+        console.log('   - Meeting updated successfully');
+        console.log('   - New recordingUrl:', meeting.recordingUrl);
+        console.log('   - New recordingStatus:', meeting.recordingStatus);
+
+        const totalTime = Date.now() - startTime;
+        console.log('✅ ========== UPDATE RECORDING URL SUCCESS ==========');
+        console.log('   - Total time:', totalTime, 'ms');
+
+        return {
+            EM: 'Cập nhật recording URL thành công!',
+            EC: 0,
+            DT: {
+                meetingId: meeting.id,
+                recordingUrl: recordingUrl,
+                recordingStatus: 'ready'
+            }
+        };
+    } catch (error) {
+        const totalTime = Date.now() - startTime;
+        console.error('❌ ========== UPDATE RECORDING URL ERROR ==========');
+        console.error('   - Error:', error);
+        console.error('   - Error message:', error.message);
+        console.error('   - Error stack:', error.stack);
+        console.error('   - Total time before error:', totalTime, 'ms');
+        return {
+            EM: 'Có lỗi xảy ra khi cập nhật recording URL!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
+/**
+ * Get recording info for a meeting
+ */
+const getRecording = async (userId, meetingId) => {
+    try {
+        if (!userId || !meetingId) {
+            return {
+                EM: 'Thiếu thông tin bắt buộc!',
+                EC: 1,
+                DT: null
+            };
+        }
+
+        const meeting = await db.Meeting.findOne({
+            where: { id: meetingId },
+            attributes: ['id', 'recordingUrl', 'recordingStatus', 'recordingStartedAt', 'recordingFinishedAt', 'hrUserId'],
+            include: [{
+                model: db.JobPosting,
+                as: 'JobPosting',
+                attributes: ['id', 'recruiterId'],
+                include: [{
+                    model: db.Recruiter,
+                    attributes: ['id', 'userId']
+                }]
+            }]
+        });
+
+        if (!meeting) {
+            return {
+                EM: 'Không tìm thấy meeting!',
+                EC: 2,
+                DT: null
+            };
+        }
+
+        // Verify HR owns this meeting
+        if (meeting.hrUserId !== userId && meeting.JobPosting?.Recruiter?.userId !== userId) {
+            return {
+                EM: 'Bạn không có quyền xem recording của meeting này!',
+                EC: 3,
+                DT: null
+            };
+        }
+
+        return {
+            EM: 'Lấy thông tin recording thành công!',
+            EC: 0,
+            DT: {
+                meetingId: meeting.id,
+                recordingUrl: meeting.recordingUrl,
+                recordingStatus: meeting.recordingStatus,
+                recordingStartedAt: meeting.recordingStartedAt,
+                recordingFinishedAt: meeting.recordingFinishedAt,
+                hasRecording: !!meeting.recordingUrl && meeting.recordingStatus === 'ready'
+            }
+        };
+    } catch (error) {
+        console.error('Error in getRecording:', error);
+        return {
+            EM: 'Có lỗi xảy ra khi lấy thông tin recording!',
+            EC: -1,
+            DT: null
+        };
+    }
+};
+
 module.exports = {
     getMeetingsForHr,
     getMeetingsForCandidate,
@@ -1520,6 +1816,10 @@ module.exports = {
     updateInvitationStatus,
     cancelMeeting,
     getCandidatesByJobPosting,
-    getLatestMeetingByJobPosting
+    getLatestMeetingByJobPosting,
+    startRecording,
+    stopRecording,
+    updateRecordingUrl,
+    getRecording
 };
 

@@ -134,6 +134,27 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false,
       allowNull: false,
       comment: 'Khóa đánh giá - không cho phép chỉnh sửa khi đã đánh giá hoặc đã duyệt ứng viên'
+    },
+    recordingUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      comment: 'URL recording từ Jitsi (sau khi meeting kết thúc)'
+    },
+    recordingStatus: {
+      type: DataTypes.ENUM('not_started', 'recording', 'processing', 'ready', 'failed'),
+      defaultValue: 'not_started',
+      allowNull: false,
+      comment: 'Trạng thái recording: not_started/recording/processing/ready/failed'
+    },
+    recordingStartedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Thời gian bắt đầu recording'
+    },
+    recordingFinishedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: 'Thời gian kết thúc recording'
     }
   }, {
     sequelize,

@@ -19,6 +19,7 @@ import trainingDataController from '../controller/trainingDataController';
 import cvMatchingController from '../controller/cvMatchingController.js';
 import upload from '../middleware/uploadCV';
 import uploadQuestionBank from '../middleware/uploadQuestionBank';
+import uploadRecording from '../middleware/uploadRecording';
 import verifyJWT from '../middleware/verifyJWT';
 
 const router = express.Router();
@@ -164,6 +165,13 @@ const initWebRoutes = (app) => {
     // API lấy danh sách ứng viên và meeting gần nhất theo JobPosting
     app.get("/api/hr/meetings/candidates", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getCandidatesByJobPosting);
     app.get("/api/hr/meetings/latest", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getLatestMeetingByJobPosting);
+    
+    // Recording endpoints
+    app.post("/api/hr/meetings/:meetingId/recording/start", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.startRecording);
+    app.post("/api/hr/meetings/:meetingId/recording/stop", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.stopRecording);
+    app.post("/api/hr/meetings/:meetingId/recording/upload", verifyJWT.verifyJWT, verifyJWT.requireRole(2), uploadRecording.single('recording'), meetingController.uploadRecording);
+    app.put("/api/meetings/:meetingId/recording", verifyJWT.verifyJWT, meetingController.updateRecordingUrl);
+    app.get("/api/hr/meetings/:meetingId/recording", verifyJWT.verifyJWT, verifyJWT.requireRole(2), meetingController.getRecording);
 
     // API Interview Response (Public - No JWT required, uses interview_token)
     app.get("/api/interview/verify/:token", interviewController.verifyInterviewToken);
