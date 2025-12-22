@@ -34,6 +34,7 @@ export async function matchCVWithML(cvText, jdTexts) {
             signal: controller.signal
         });
 
+        
         clearTimeout(timeoutId);
 
         if (!response.ok) {
