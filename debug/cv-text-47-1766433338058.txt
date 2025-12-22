@@ -1,0 +1,123 @@
+=== CV TEXT DEBUG ===
+Record ID: 47
+User ID: 34
+Extracted At: Tue Dec 23 2025 02:55:18 GMT+0700 (Indochina Time)
+Length: 2980 characters
+
+=== CV TEXT ===
+0827169704
+✉
+tramtram232306@gmail.co
+m
+Thủ Đức, TP.HCM
+Học Vấn
+Đại học Công Nghệ TP.HCM
+Công nghệ thông tin
+2022-Present
+GPA hiện tại : 2.9
+Kỹ Năng
+QA/Testing
+•API Testing: Postman
+(request/collection,
+environment), test case, bug
+report cơ bản
+•Functional Testing, kiểm tra
+luồng nghiệp vụ, UI checking
+•Backend / Programming (Nền
+tảng)
+•OOP, Node.js: Xây dựng API hệ
+thống, giúp cải thiện thời gian
+phản hồi 40%
+Database
+Trịnh Bảo Trâm
+Tester Intern
+Mục Tiêu Nghề Nghiệp
+Giới thiệu bản thân
+Sinh viên năm cuối ngành CNTT tại HUTECH (GPA 2.9/4.0), định hướng
+Tester Intern.Kỹ năng API Testing bằng Postman, viết test case, ghi
+nhận lỗi và phối hợp đề xuất hướng xử lý. Nắm nền tảng OOP,
+SQL/MySQL, quy trình phát triển phần mềm cơ bản; sử dụng tốt Git và
+VS Code. Mong muốn tham gia môi trường thực tế để nâng kỹ năng
+chuyên môn và đóng góp hiệu quả cho dự án.
+Đam mê về AI & Động lực phát triển
+Gần đây, tôi đã tìm hiểu về các công cụ và ứng dụng AI trong phát triển
+phần mềm.
+Tôi tin rằng trong tương lai gần, lập trình viên không chỉviết mã mà còn
+phải làm việc cùng AI đểtăng năng suất và tạo ra các giải pháp thông
+minh hơn.
+Vì vậy, tôi mong muốn được làm việc trong môi trường phát triển phần
+mềm có ứng dụng AI, nơi tôi có thể học hỏi, phát triển và đóng góp hiệu
+quả.
+Mục tiêu ngắn hạn (6–12 tháng)
+•Làm quen và thích ứng với quy trình phát triển phần mềm thực tế.
+•Cải thiện kỹ năng lập trình, giải quyết vấn đề và tưduy hệ thống.
+•Nâng cao kỹ năng làm việc nhóm và giao tiếp trong môi trường
+chuyên nghiệp.
+• Góp phần xây dựng và hoàn thiện các tính năng trong dựán thực tế.
+Mục tiêu dài hạn (2–4 năm)
+• Trở thành lập trình viên chuyên nghiệp, có thể đảm nhiệm các giai
+đoạn phát triển phần mềm từđầu đến cuối.
+•Mở rộng kiến thức về AI và Machine Learning, có khả năng tích hợp
+AI vào sản phẩm phần mềm
+Phát triển thành thành viên nòng cốt, có thể đóng góp vào các
+•phần quan trọng của dự án.
+Dự Án
+Website Bán Điện Thoại Trực Tuyến (Online Mobile Store Website)
+(02/2025-04/2025)
+Tester
+•API Testing bằng Postman cho: đăng ký/đăng nhập, tìm kiếm sản
+phẩm, giỏ hàng, đặt hàng, thanh toán, quản lý đơn hàng
+•Thiết kế & thực thi 15 test case (CRUD) cho các chức năng chính
+•SQL cơ bản: SELECT, JOIN đơn
+giản, lọc dữ liệu; MySQL
+Tools
+•Git (commit/pull/push cơ bản),
+VS Code
+Soft skills
+•Làm việc nhóm, chủ động học
+hỏi, giao tiếp và báo cáo tiến
+độ rõ ràng
+Chứng Chỉ
+2025Chứng Chỉ Ngoại Ngữ CEF-
+B1
+Sở Thích
+Du lịch - nghe nhạc- Mèo
+•Ghi nhận kết quả kiểm thử, tạo bug report chi tiết và đề xuất hướng
+khắc phục
+•Công nghệ/Tool: Postman, REST API, SQL/MySQL (truy vấn cơ
+bản), Git, VS Code.
+Website Hệ thống Quản lý Spa (Spa Management Website)
+(04/2025-06/2025)
+Tester
+•Phân tích yêu cầu, thiết kế test case cho: đặt lịch, quản lý khách
+hàng/sản phẩm/nhân viên
+•Thực hiện Functional Testing và UI checking theo luồng nghiệp vụ
+•Kiểm thử luồng đăng ký → thanh toán → phản hồi dịch vụ; ghi nhận
+lỗi và báo cáo
+Công nghệ/Tool: Postman, SQL/MySQL, Git, VS Code.
+© topcv.vn
+
+=== JD TEXTS ===
+
+--- JD 1 ---
+Thực tập sinh Kiểm thử phần mềm (Tester Intern/QA)
+
+MÔ TẢ CÔNG VIỆC:
+- Tham gia phân tích yêu cầu dự án, thiết kế Test Plan và Test Case chi tiết.
+- Thực hiện kiểm thử thủ công (Manual Testing): Functional Testing, UI/UX Testing trên Web/App.
+- Thực hiện kiểm thử API sử dụng công cụ Postman (gửi request, kiểm tra response, environment).
+- Ghi nhận lỗi (Log bug), báo cáo kết quả kiểm thử và phối hợp với Dev để xử lý lỗi.
+- Hỗ trợ viết tài liệu hướng dẫn sử dụng hệ thống.
+
+YÊU CẦU ỨNG VIÊN:
+- Sinh viên năm cuối hoặc mới tốt nghiệp chuyên ngành CNTT, Phần mềm (như ứng viên từ HUTECH, GPA khá trở lên).
+- Có kiến thức nền tảng về quy trình kiểm thử phần mềm, tư duy logic tốt.
+- Sử dụng thành thạo công cụ Postman cho API Testing.
+- Nắm vững kiến thức SQL cơ bản (Select, Join) và thao tác với MySQL.
+- Biết sử dụng Git, VS Code là một lợi thế.
+- Kỹ năng làm việc nhóm tốt, chủ động học hỏi và báo cáo tiến độ rõ ràng.
+
+QUYỀN LỢI:
+- Được đào tạo bài bản về quy trình làm việc thực tế (Agile/Scrum).
+- Hỗ trợ dấu mộc thực tập và phụ cấp thực tập (thỏa thuận).
+- Cơ hội trở thành nhân viên chính thức sau kỳ thực tập.

@@ -1,4 +1,5 @@
 import db from '../models/index';
+import path from 'path';
 
 // Get all records of a user
 const getRecordsByUserId = async (userId) => {
@@ -98,7 +99,60 @@ const createRecord = async (data) => {
             };
         }
 
-        // Create new record
+        // Nếu có File_url, kiểm tra xem đã có record nào với File_url này chưa
+        // (để tránh tạo record trùng khi upload CV đã tạo record trước đó)
+        if (data.File_url) {
+            // Lấy filename từ File_url để so sánh (xử lý cả absolute và relative path)
+            const fileName = path.basename(data.File_url);
+            
+            // Tìm record có cùng filename (so sánh filename vì có thể có absolute/relative path khác nhau)
+            const allUserRecords = await db.Record.findAll({
+                where: {
+                    userId: data.userId
+                },
+                order: [['createdAt', 'DESC']]
+            });
+
+            // Tìm record có filename trùng
+            const existingRecord = allUserRecords.find(record => {
+                if (!record.File_url) return false;
+                const recordFileName = path.basename(record.File_url);
+                return recordFileName === fileName;
+            });
+
+            if (existingRecord) {
+                // Cập nhật record đã tồn tại với Tieude mới
+                // Giữ nguyên cvText, fileHash, extractionStatus, extractedAt nếu đã có
+                // Đảm bảo File_url là relative path (chuẩn hóa)
+                const fileUrlToSave = data.File_url.startsWith('/') 
+                    ? data.File_url 
+                    : (existingRecord.File_url.startsWith('/') ? existingRecord.File_url : data.File_url);
+                
+                await db.Record.update(
+                    {
+                        Tieude: data.Tieude,
+                        File_url: fileUrlToSave
+                    },
+                    {
+                        where: { id: existingRecord.id }
+                    }
+                );
+
+                // Lấy record đã cập nhật
+                const updatedRecord = await db.Record.findOne({
+                    where: { id: existingRecord.id },
+                    raw: true
+                });
+
+                return {
+                    EM: 'Cập nhật hồ sơ thành công!',
+                    EC: 0,
+                    DT: updatedRecord
+                };
+            }
+        }
+
+        // Nếu không có File_url hoặc không tìm thấy record trùng → tạo mới
         let newRecord = await db.Record.create({
             Tieude: data.Tieude,
             File_url: data.File_url || null,

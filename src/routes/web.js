@@ -50,6 +50,10 @@ const initWebRoutes = (app) => {
     // API Upload CV (Require JWT)
     app.post("/api/upload-cv", verifyJWT.verifyJWT, upload.single('cv'), recordController.uploadCV);
     
+    // API CV List & Select (Require JWT)
+    app.get("/api/cv/list", verifyJWT.verifyJWT, recordController.getCVList);
+    app.post("/api/cv/select", verifyJWT.verifyJWT, recordController.selectCV);
+    
     // API Job Posting
     app.get("/api/jobs", jobPostingController.getListJobPosting);
     app.get("/api/jobs/filters/options", jobPostingController.getFilterOptions);

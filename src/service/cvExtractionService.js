@@ -229,8 +229,12 @@ const extractCVText = async (filePath) => {
 
 /**
  * Tạo hoặc cập nhật Record với CV info
+ * @param {number} userId - User ID
+ * @param {string} absoluteFilePath - Absolute path để đọc file (cho extraction)
+ * @param {Buffer} fileBuffer - File buffer để tính hash
+ * @param {string} relativeFilePath - Relative path để lưu vào DB (ví dụ: /uploads/cv/filename.pdf)
  */
-const createOrUpdateCandidateCV = async (userId, filePath, fileBuffer) => {
+const createOrUpdateCandidateCV = async (userId, absoluteFilePath, fileBuffer, relativeFilePath) => {
     try {
         const fileHash = calculateFileHash(fileBuffer);
         
@@ -254,7 +258,7 @@ const createOrUpdateCandidateCV = async (userId, filePath, fileBuffer) => {
             }
             
             // Nếu đang processing hoặc failed → update lại
-            record.File_url = filePath;
+            record.File_url = relativeFilePath || absoluteFilePath; // Ưu tiên relative path
             record.extractionStatus = 'PENDING';
             record.errorMessage = null;
             await record.save();
@@ -263,7 +267,7 @@ const createOrUpdateCandidateCV = async (userId, filePath, fileBuffer) => {
             record = await db.Record.create({
                 userId,
                 Tieude: 'CV', // Default title
-                File_url: filePath,
+                File_url: relativeFilePath || absoluteFilePath, // Ưu tiên relative path
                 fileHash,
                 extractionStatus: 'PENDING',
                 Ngaytao: new Date()
@@ -303,9 +307,28 @@ const processCVExtraction = async (recordId) => {
         await record.save();
 
         // Extract text từ File_url (relative path) hoặc absolute path
-        const filePath = record.File_url.startsWith('/') 
-            ? path.resolve(__dirname, '..', 'public', record.File_url)
-            : record.File_url;
+        let filePath;
+        if (record.File_url.startsWith('/')) {
+            // Relative path: /uploads/cv/filename.pdf
+            // Bỏ dấu / đầu tiên và resolve từ public folder
+            const relativePath = record.File_url.substring(1); // Bỏ dấu / đầu
+            filePath = path.resolve(__dirname, '..', 'public', relativePath);
+        } else if (path.isAbsolute(record.File_url)) {
+            // Absolute path: T:\DoAn\Node-backend\src\public\uploads\cv\filename.pdf
+            filePath = record.File_url;
+        } else {
+            // Relative path không có dấu / đầu: uploads/cv/filename.pdf
+            filePath = path.resolve(__dirname, '..', 'public', record.File_url);
+        }
+        
+        console.log(`📄 Extracting CV text from: ${filePath} (File_url: ${record.File_url})`);
+        
+        // Kiểm tra file có tồn tại không trước khi extract
+        if (!fs.existsSync(filePath)) {
+            const errorMsg = `File không tồn tại: ${filePath}. File_url trong DB: ${record.File_url}`;
+            console.error(`❌ ${errorMsg}`);
+            throw new Error(errorMsg);
+        }
         
         const cvText = await extractCVText(filePath);
         

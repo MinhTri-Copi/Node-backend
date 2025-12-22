@@ -1,0 +1,80 @@
+=== CV TEXT DEBUG ===
+Record ID: 57
+User ID: 34
+Extracted At: Tue Dec 23 2025 04:03:30 GMT+0700 (Indochina Time)
+Length: 2579 characters
+
+=== CV TEXT ===
+Nguyễn Thị Quỳnh Như
+Hồ Chí Minh • ntqnhu.1504@gmail.com • +84-898133460
+Skilled in C#, ASP.NET, React, and SQL Server, with experience developing and maintaining web-
+based management systems that improved processing efficiency by 20%.
+Focused on building scalable, maintainable software solutions aligned with enterprise needs.
+Aiming to contribute to high-quality software development projects through strong teamwork and
+problem-solving skills.
+EDUCATION
+Ho Chi Minh City University of Technology 2022 - Now
+Software Engineering
+GPA: 3.3/4
+PROJECT
+Science and Technology Management System 05/10/2025 - Now
+Developer
+- Collaborated with a 5-member team to engineer backend modules using C# (.NET) and NodeJS,
+streamlining management of research projects, contracts, and evaluations.
+- Designed and optimized SQL Server database queries, enhancing data accuracy and operational
+efficiency.
+- Assisted in developing frontend components with TypeScript, integrating dynamic dashboards and
+comprehensive reporting features.
+- Contributed to orchestrating workflow enhancements that increased efficiency and minimized data
+errors across multiple research initiatives.
+Eastern Bus Station Management Website 04/2025 - 06/2025
+Backend Developer
+- Designed and implemented robust backend services for managing bus routes, driver profiles, and
+ticket bookings using Node.js and MongoDB, enhancing data handling efficiency.
+- Applied JWT-based authentication and role-based access controls for admin and customer roles,
+fortifying system security and user management.
+- Integrated backend systems with Vite-powered frontend to enable real-time ticket management and
+seamless user interactions.
+- Improved system reliability and minimized data errors, ensuring smooth operations and scalability
+for multiple concurrent users.
+Personal Finance Management Website 03/2025 - 05/2025
+Backend Developer
+- Implemented secure user authentication and authorization utilizing JWT to safeguard sensitive
+financial data.
+- Developed robust backend APIs with Node.js and MongoDB to efficiently track income, expenses,
+and generate comprehensive financial statistics.
+- Collaborated with the ReactJS frontend team to integrate dynamic and interactive financial
+dashboards, enhancing user experience.
+- Enhanced system reliability and data accuracy, increasing transaction handling efficiency by 25%.
+SKILL, LANGUAGE & INTEREST
+Skills
+Languages
+Interests
+TypeScript, Gitlab, .NET, SQL Server, Node.js, C#, MongoDB, Vite, Git, React.js
+English (Intermediate)
+Technical, Music, Research & learning, Game
+
+=== JD TEXTS ===
+
+--- JD 1 ---
+Thực tập sinh Kiểm thử phần mềm (Tester Intern/QA)
+
+MÔ TẢ CÔNG VIỆC:
+- Tham gia phân tích yêu cầu dự án, thiết kế Test Plan và Test Case chi tiết.
+- Thực hiện kiểm thử thủ công (Manual Testing): Functional Testing, UI/UX Testing trên Web/App.
+- Thực hiện kiểm thử API sử dụng công cụ Postman (gửi request, kiểm tra response, environment).
+- Ghi nhận lỗi (Log bug), báo cáo kết quả kiểm thử và phối hợp với Dev để xử lý lỗi.
+- Hỗ trợ viết tài liệu hướng dẫn sử dụng hệ thống.
+
+YÊU CẦU ỨNG VIÊN:
+- Sinh viên năm cuối hoặc mới tốt nghiệp chuyên ngành CNTT, Phần mềm (như ứng viên từ HUTECH, GPA khá trở lên).
+- Có kiến thức nền tảng về quy trình kiểm thử phần mềm, tư duy logic tốt.
+- Sử dụng thành thạo công cụ Postman cho API Testing.
+- Nắm vững kiến thức SQL cơ bản (Select, Join) và thao tác với MySQL.
+- Biết sử dụng Git, VS Code là một lợi thế.
+- Kỹ năng làm việc nhóm tốt, chủ động học hỏi và báo cáo tiến độ rõ ràng.
+
+QUYỀN LỢI:
+- Được đào tạo bài bản về quy trình làm việc thực tế (Agile/Scrum).
+- Hỗ trợ dấu mộc thực tập và phụ cấp thực tập (thỏa thuận).
+- Cơ hội trở thành nhân viên chính thức sau kỳ thực tập.
