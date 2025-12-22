@@ -88,6 +88,17 @@ const reviewCVController = async (req, res) => {
 
         console.log(`📋 Reviewing CV for user ${userId}, record ${recordId}`);
         console.log(`   JD count: ${validJdTexts.length}`);
+        console.log(`   CV text length: ${record.cvText.length} characters`);
+        
+        // Save full CV text to file for debugging (silent, no console log)
+        const fs = require('fs');
+        const path = require('path');
+        const debugDir = path.join(__dirname, '..', '..', 'debug');
+        if (!fs.existsSync(debugDir)) {
+            fs.mkdirSync(debugDir, { recursive: true });
+        }
+        const debugFilePath = path.join(debugDir, `cv-text-${recordId}-${Date.now()}.txt`);
+        fs.writeFileSync(debugFilePath, `=== CV TEXT DEBUG ===\nRecord ID: ${recordId}\nUser ID: ${userId}\nExtracted At: ${record.extractedAt || 'N/A'}\nLength: ${record.cvText.length} characters\n\n=== CV TEXT ===\n${record.cvText}\n\n=== JD TEXTS ===\n${validJdTexts.map((jd, idx) => `\n--- JD ${idx + 1} ---\n${jd}`).join('\n')}\n`, 'utf8');
 
         // Call CV review service
         const result = await reviewCV(record.cvText, validJdTexts);

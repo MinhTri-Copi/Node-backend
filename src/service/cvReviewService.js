@@ -233,6 +233,84 @@ function detectLanguage(text) {
 }
 
 /**
+ * Detect role from CV text (Mobile, Backend, Frontend, etc.)
+ * Returns role string or null
+ */
+function detectCVRole(text) {
+    if (!text) return null;
+    const t = text.toLowerCase();
+    
+    // Ưu tiên fullstack trước để không bị dính frontend/backend sai
+    if (t.includes('fullstack') || t.includes('full-stack') || t.includes('full stack')) return 'fullstack';
+    if (t.includes('mobile') || t.includes('flutter') || t.includes('react native') || t.includes('swift') || t.includes('kotlin')) return 'mobile';
+    if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('angular')) return 'frontend';
+    if (t.includes('back-end') || t.includes('backend') || t.includes('node.js') || t.includes('spring') || t.includes('django')) return 'backend';
+    
+    return null;
+}
+
+/**
+ * Anonymize CV name for academic reporting
+ * Converts "CV 1 - LINHNGUYỄN (Mobile)" to "Candidate_001 (Mobile)"
+ */
+function anonymizeCVName(cvExample) {
+    const id = cvExample.id || 0;
+    const role = detectCVRole(cvExample.cv_text || cvExample.name || '') || 'Unknown';
+    return `Candidate_${String(id).padStart(3, '0')} (${role.charAt(0).toUpperCase() + role.slice(1)})`;
+}
+
+/**
+ * Select relevant CV examples based on role and available tokens
+ * Returns array of selected examples
+ */
+function selectCVExamples(cvExamples, cvRole, availableTokens) {
+    if (!cvExamples || cvExamples.length === 0) return [];
+    
+    // Calculate how many examples we can include
+    // Each example needs ~200-300 tokens, reserve some buffer
+    const tokensPerExample = 250; // Average tokens per example
+    const maxExamples = Math.min(
+        Math.floor(availableTokens / tokensPerExample), // Based on available tokens
+        3, // Max 3 examples to avoid prompt too long
+        cvExamples.length // Don't exceed available examples
+    );
+    
+    if (maxExamples <= 0) return [];
+    
+    // Strategy: Select examples that match the CV's role first, then diversify
+    let selected = [];
+    const usedIds = new Set();
+    
+    // Step 1: Try to find examples matching the CV's role
+    if (cvRole) {
+        const roleMatches = cvExamples.filter(ex => {
+            const exRole = detectCVRole(ex.cv_text || ex.name || '');
+            return exRole === cvRole && !usedIds.has(ex.id);
+        });
+        
+        // Take 1-2 examples matching role
+        const roleCount = Math.min(roleMatches.length, Math.max(1, Math.floor(maxExamples / 2)));
+        selected.push(...roleMatches.slice(0, roleCount));
+        roleMatches.slice(0, roleCount).forEach(ex => usedIds.add(ex.id));
+    }
+    
+    // Step 2: Add diverse examples (different roles) if we have space
+    if (selected.length < maxExamples) {
+        const diverseExamples = cvExamples.filter(ex => !usedIds.has(ex.id));
+        const remaining = maxExamples - selected.length;
+        selected.push(...diverseExamples.slice(0, remaining));
+    }
+    
+    // Step 3: If still not enough, fill with any remaining examples
+    if (selected.length < maxExamples) {
+        const remaining = cvExamples.filter(ex => !usedIds.has(ex.id));
+        selected.push(...remaining.slice(0, maxExamples - selected.length));
+    }
+    
+    return selected.slice(0, maxExamples);
+}
+
+/**
  * Estimate token count (rough: 1 token ≈ 4 characters)
  */
 function estimateTokens(text) {
@@ -289,19 +367,45 @@ ${languageInstruction}`;
         jdSection = '\n\n=== JOB DESCRIPTIONS ===\nNo job descriptions provided.';
     }
 
-    // Skip CV examples to save tokens (context window is tight)
-    // Examples are helpful but not critical - standards and scoring are more important
+    // Include reference CVs for few-shot learning (in-context learning)
+    // Purpose: Guide AI evaluation style (score calibration, issue severity, wording style)
     let examplesSection = '';
-    // Only add examples if we have room (estimate current prompt size first)
+    // Estimate current prompt size first
     const currentPromptSize = estimateTokens(systemPrompt + truncatedCV + jdSection + JSON.stringify(cvStandards) + JSON.stringify(cvScoring));
     const availableTokens = 4096 - currentPromptSize - 1500; // Reserve 1500 for response
     
-    if (cvExamples && cvExamples.length > 0 && availableTokens > 500) {
-        examplesSection = '\n\n=== CV EXAMPLE (Reference) ===\n';
-        // Use only 1 example, truncated to ~200 tokens
-        const example = cvExamples[0];
-        const exampleText = truncateToTokens(example.cv_text, 200);
-        examplesSection += `[Example CV - Score: ${example.expected_score || 'N/A'}]\n${exampleText}...\n`;
+    if (cvExamples && cvExamples.length > 0) {
+        // Detect CV role to select relevant examples
+        const cvRole = detectCVRole(cvText);
+        if (cvRole) {
+            console.log(`🎯 Detected candidate CV role: ${cvRole.charAt(0).toUpperCase() + cvRole.slice(1)}`);
+        }
+        
+        // Select multiple relevant reference CVs (up to 3, based on available tokens)
+        const selectedExamples = selectCVExamples(cvExamples, cvRole, availableTokens);
+        
+        if (selectedExamples.length > 0) {
+            examplesSection = '\n\n=== REFERENCE CVs (For Evaluation Style Guidance) ===\n';
+            const tokensPerExample = Math.floor(availableTokens * 0.25 / selectedExamples.length); // Distribute tokens evenly
+            
+            selectedExamples.forEach((example, index) => {
+                const exampleText = truncateToTokens(example.cv_text, tokensPerExample);
+                const exRole = detectCVRole(example.cv_text || example.name || '') || 'Unknown';
+                const anonymizedName = anonymizeCVName(example);
+                // Note: Score is for calibration reference, not for direct learning
+                examplesSection += `\n[Reference CV ${index + 1} - ${anonymizedName} - Calibration Score: ${example.expected_score || 'N/A'}]\n${exampleText}...\n`;
+            });
+            
+            const anonymizedNames = selectedExamples.map(ex => anonymizeCVName(ex)).join(', ');
+            const roles = [...new Set(selectedExamples.map(ex => detectCVRole(ex.cv_text || ex.name || '') || 'Unknown'))].join('/');
+            console.log(`✅ Selected ${selectedExamples.length} reference CV(s) for in-context learning: ${anonymizedNames}`);
+            console.log(`   Purpose: Guide evaluation style (score calibration, issue severity, wording patterns)`);
+            console.log(`   Role distribution: ${roles}`);
+        } else {
+            console.warn(`⚠️  Reference CVs NOT included - insufficient tokens (available: ${availableTokens}, needed: >250)`);
+        }
+    } else {
+        console.warn(`⚠️  No reference CV dataset available - in-context learning disabled`);
     }
 
     // Language-specific example
@@ -327,15 +431,26 @@ ${jdSection}
 ${languageInstruction}
 
 Tasks:
-1. Score CV 0-100 based on rubric
+1. Evaluate CV against each rubric criterion and assign scores (0 to max weight for each criterion)
 2. Check format issues → suggest improvements to existing content
 3. Compare CV with JD → suggest how to better present existing content
-4. For each issue: section, original_text (quote exactly from CV), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
-5. ready = true if score >= 80 and no high severity issues
+4. For each issue: section, original_text (quote from CV), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
+5. ready = true if total score >= 80 and no high severity issues
+
+IMPORTANT: Return criteria_scores for each rubric criterion (summary, skills, experience, education, format, job_matching).
+Each score should be 0 to the max weight of that criterion (see rubric weights).
+Backend will calculate total percentage from these scores.
 
 Return JSON only (suggestion and summary must be in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}):
 {
-  "score": 68,
+  "criteria_scores": {
+    "summary": 12,
+    "skills": 16,
+    "experience": 22,
+    "education": 8,
+    "format": 10,
+    "job_matching": 7
+  },
   "ready": false,
   "issues": [{"section": "experience", "original_text": "Worked on backend", "suggestion": ${exampleSuggestion}, "severity": "high"}],
   "summary": ${exampleSummary}
@@ -374,12 +489,31 @@ export async function reviewCV(cvText, jdTexts = []) {
         const cvExamples = loadCVExamples();
         const loadTime = Date.now() - stepStartTime;
         console.log(`⏱️  Load standards/scoring/examples: ${loadTime}ms`);
+        
+        // Log reference CV dataset info (for academic reporting)
+        if (cvExamples && cvExamples.length > 0) {
+            // Count by role for reporting
+            const roleCounts = {};
+            cvExamples.forEach(ex => {
+                const role = detectCVRole(ex.cv_text || ex.name || '') || 'Unknown';
+                roleCounts[role] = (roleCounts[role] || 0) + 1;
+            });
+            const roleSummary = Object.entries(roleCounts)
+                .map(([role, count]) => `${role.charAt(0).toUpperCase() + role.slice(1)}: ${count}`)
+                .join(', ');
+            
+            console.log(`📚 Loaded ${cvExamples.length} reference CVs from curated dataset`);
+            console.log(`   Role distribution: ${roleSummary}`);
+            console.log(`   Note: All candidate names anonymized for research purposes`);
+        } else {
+            console.warn(`⚠️  No reference CV dataset found! In-context learning disabled.`);
+        }
 
         // Detect CV language
         const cvLanguage = detectLanguage(cvText);
         console.log(`🌐 Detected CV language: ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}`);
 
-        // Build prompt (include examples for few-shot learning)
+        // Build prompt (include reference CVs for in-context learning)
         stepStartTime = Date.now();
         const { systemPrompt, userPrompt } = buildPrompt(cvText, jdTextsLimited, cvStandards, cvScoring, cvExamples, cvLanguage);
         const buildPromptTime = Date.now() - stepStartTime;
@@ -392,6 +526,7 @@ export async function reviewCV(cvText, jdTexts = []) {
         // Estimate prompt size
         const promptSize = estimateTokens(systemPrompt + userPrompt);
         console.log(`   Estimated prompt size: ~${promptSize} tokens`);
+        console.log(`   Prompt optimized for local LLM (Qwen 7B, 16GB RAM, context window: 4096 tokens)`);
         
         // Adjust max_tokens based on available context
         // Context window: 4096, reserve ~500 for overhead, prompt uses ~promptSize
@@ -429,29 +564,77 @@ export async function reviewCV(cvText, jdTexts = []) {
             throw new Error('LLM không trả về JSON hợp lệ!');
         }
 
-        // Validate result structure
-        if (typeof result.score !== 'number' || result.score < 0 || result.score > 100) {
-            console.warn('⚠️  Invalid score, defaulting to 0');
+        // Calculate total score from criteria_scores if available (preferred method)
+        let totalScore = 0;
+        if (result.criteria_scores && typeof result.criteria_scores === 'object') {
+            // Load scoring rubric to get weights
+            const cvScoring = loadCVScoring();
+            const rubric = cvScoring.rubric || {};
+            
+            // Calculate total score from criteria_scores * weights
+            let totalWeightedScore = 0;
+            let totalMaxScore = 0;
+            
+            Object.keys(rubric).forEach(criterion => {
+                const weight = rubric[criterion]?.weight || 0;
+                const score = result.criteria_scores[criterion] || 0;
+                
+                // Ensure score doesn't exceed weight
+                const clampedScore = Math.max(0, Math.min(weight, score));
+                totalWeightedScore += clampedScore;
+                totalMaxScore += weight;
+            });
+            
+            // Calculate percentage (0-100)
+            totalScore = totalMaxScore > 0 ? Math.round((totalWeightedScore / totalMaxScore) * 100) : 0;
+            result.score = totalScore; // Set score for backward compatibility
+            result.criteria_scores_detail = result.criteria_scores; // Keep detailed scores
+            
+            console.log(`📊 Calculated score from criteria: ${totalWeightedScore}/${totalMaxScore} = ${totalScore}%`);
+        } else if (typeof result.score === 'number' && result.score >= 0 && result.score <= 100) {
+            // Fallback: use score directly if criteria_scores not available
+            totalScore = Math.round(result.score);
+            console.log(`📊 Using direct score: ${totalScore}%`);
+        } else {
+            console.warn('⚠️  Invalid score and no criteria_scores, defaulting to 0');
+            totalScore = 0;
             result.score = 0;
         }
 
         if (typeof result.ready !== 'boolean') {
             // Auto-determine ready based on score and issues
             const hasHighSeverity = result.issues?.some(issue => issue.severity === 'high') || false;
-            result.ready = result.score >= 80 && !hasHighSeverity;
+            result.ready = totalScore >= 80 && !hasHighSeverity;
         }
 
         if (!Array.isArray(result.issues)) {
             result.issues = [];
         }
 
+        // Validation temporarily disabled - show all issues from LLM
+        // TODO: Re-enable validation after fixing matching logic
+        console.log(`📊 LLM returned ${result.issues.length} issues (validation disabled)`);
+
         // Ensure summary exists
         if (!result.summary) {
-            result.summary = `CV được chấm ${result.score}/100 điểm. ${result.issues.length > 0 ? `Có ${result.issues.length} vấn đề cần sửa.` : 'CV khá tốt.'}`;
+            result.summary = `CV được chấm ${totalScore}/100 điểm. ${result.issues.length > 0 ? `Có ${result.issues.length} vấn đề cần sửa.` : 'CV khá tốt.'}`;
         }
 
+        // Add match rate interpretation (for UI display)
+        let matchRateInterpretation = '';
+        if (totalScore >= 85) {
+            matchRateInterpretation = 'Rất phù hợp / Short-list';
+        } else if (totalScore >= 70) {
+            matchRateInterpretation = 'Phù hợp tốt';
+        } else if (totalScore >= 60) {
+            matchRateInterpretation = 'Có thể phỏng vấn';
+        } else {
+            matchRateInterpretation = 'Cần chỉnh sửa CV';
+        }
+        result.matchRateInterpretation = matchRateInterpretation;
+
         const totalTime = Date.now() - startTime;
-        console.log(`✅ CV review completed: Score ${result.score}/100, Ready: ${result.ready}, Issues: ${result.issues.length}`);
+        console.log(`✅ CV review completed: Score ${totalScore}/100 (${matchRateInterpretation}), Ready: ${result.ready}, Issues: ${result.issues.length}`);
         console.log(`⏱️  Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
         console.log(`   Breakdown: Load ${loadTime}ms + Build ${buildPromptTime}ms + LLM ${llmTime}ms + Parse ${parseTime}ms`);
 

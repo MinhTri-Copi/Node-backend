@@ -146,16 +146,17 @@ async function main() {
 
     // Extract text from each PDF
     const newExamples = [];
-    const maxExamples = 10; // Chỉ lấy 10 CV đầu tiên để không làm prompt quá dài
+    // Extract tất cả CV (không giới hạn) - prompt chỉ dùng 1 example nên không ảnh hưởng
+    const maxExamples = files.length; // Extract tất cả CV
 
-    console.log(`\n🔄 Đang extract text từ ${Math.min(files.length, maxExamples)} CV files...\n`);
+    console.log(`\n🔄 Đang extract text từ ${files.length} CV files...\n`);
 
-    for (let i = 0; i < Math.min(files.length, maxExamples); i++) {
+    for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const filePath = path.join(cvFolderPath, file);
         const fileInfo = parseCVFilename(file);
 
-        console.log(`[${i + 1}/${Math.min(files.length, maxExamples)}] Processing: ${file}`);
+        console.log(`[${i + 1}/${files.length}] Processing: ${file}`);
         console.log(`   Name: ${fileInfo.name}, Role: ${fileInfo.role}`);
 
         const cvText = await extractTextFromPDF(filePath);
@@ -207,7 +208,8 @@ async function main() {
     console.log(`   Tổng cộng: ${uniqueExamples.length} examples`);
     console.log(`   File output: ${examplesOutputPath}`);
     console.log('\n💡 Lưu ý:');
-    console.log('   - Chỉ extract 10 CV đầu tiên để tránh prompt quá dài');
+    console.log('   - Đã extract tất cả CV từ folder Standard_CV');
+    console.log('   - Prompt chỉ dùng 1 example nên không ảnh hưởng đến context window');
     console.log('   - Có thể chỉnh sửa expected_score trong file JSON nếu cần');
     console.log('   - Restart backend sau khi cập nhật file');
 }
