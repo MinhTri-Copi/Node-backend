@@ -1082,7 +1082,7 @@ const getQuestionBankDetail = async (userId, bankId) => {
             include: [{
                 model: db.QuestionBankItem,
                 as: 'Items',
-                attributes: ['id', 'Cauhoi', 'Dapan', 'Chude', 'Loaicauhoi', 'Diem', 'Dodai', 'Dokho']
+                attributes: ['id', 'Cauhoi', 'Dapan', 'Chude', 'Loaicauhoi', 'Diem', 'Dodai', 'Dokho', 'Options']
             }]
         });
 
