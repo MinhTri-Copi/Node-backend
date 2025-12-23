@@ -460,6 +460,29 @@ const getTestSubmissionDetail = async (userId, submissionId) => {
             };
         }
 
+        // Parse Options cho từng câu hỏi nếu là string JSON
+        if (submission.Test && submission.Test.Questions) {
+            submission.Test.Questions = submission.Test.Questions.map(q => {
+                const questionData = q.toJSON ? q.toJSON() : q;
+                if (questionData.Options) {
+                    if (typeof questionData.Options === 'string') {
+                        try {
+                            const parsed = JSON.parse(questionData.Options);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                questionData.Options = parsed;
+                            } else {
+                                questionData.Options = null;
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse Options JSON for question', questionData.id, ':', e);
+                            questionData.Options = null;
+                        }
+                    }
+                }
+                return questionData;
+            });
+        }
+
         return {
             EM: 'Lấy thông tin bài test thành công!',
             EC: 0,

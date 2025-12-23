@@ -239,12 +239,27 @@ const addQuestion = async (userId, testId, questionData) => {
 
         const nextThutu = maxThutu ? maxThutu + 1 : 1;
 
+        // Parse Options nếu là string JSON
+        let parsedOptions = null;
+        if (questionData.Options) {
+            if (typeof questionData.Options === 'string') {
+                try {
+                    parsedOptions = JSON.parse(questionData.Options);
+                } catch (e) {
+                    console.warn('Failed to parse Options JSON in addQuestion:', e);
+                    parsedOptions = null;
+                }
+            } else if (typeof questionData.Options === 'object') {
+                parsedOptions = questionData.Options;
+            }
+        }
+
         // Tạo câu hỏi
         const newQuestion = await db.TestQuestion.create({
             Cauhoi: questionData.Cauhoi,
             Dapan: questionData.Dapan,
             Loaicauhoi: questionData.Loaicauhoi || 'tuluan',
-            Options: questionData.Options || null, // Copy Options nếu có
+            Options: parsedOptions || null, // Parse Options trước khi lưu
             Diem: questionData.Diem || 10,
             Thutu: questionData.Thutu || nextThutu,
             testId: testId
@@ -362,16 +377,33 @@ const addMultipleQuestions = async (userId, testId, questions) => {
 
         let currentThutu = maxThutu ? maxThutu + 1 : 1;
 
-        // Chuẩn bị data
-        const questionsToCreate = questions.map(q => ({
-            Cauhoi: q.Cauhoi,
-            Dapan: q.Dapan,
-            Loaicauhoi: q.Loaicauhoi || 'tuluan',
-            Options: q.Options || null, // Copy Options nếu có
-            Diem: q.Diem || 10,
-            Thutu: q.Thutu || currentThutu++,
-            testId: testId
-        }));
+        // Chuẩn bị data với parse Options
+        const questionsToCreate = questions.map(q => {
+            // Parse Options nếu là string JSON
+            let parsedOptions = null;
+            if (q.Options) {
+                if (typeof q.Options === 'string') {
+                    try {
+                        parsedOptions = JSON.parse(q.Options);
+                    } catch (e) {
+                        console.warn('Failed to parse Options JSON in addMultipleQuestions:', e);
+                        parsedOptions = null;
+                    }
+                } else if (typeof q.Options === 'object') {
+                    parsedOptions = q.Options;
+                }
+            }
+
+            return {
+                Cauhoi: q.Cauhoi,
+                Dapan: q.Dapan,
+                Loaicauhoi: q.Loaicauhoi || 'tuluan',
+                Options: parsedOptions || null, // Parse Options trước khi lưu
+                Diem: q.Diem || 10,
+                Thutu: q.Thutu || currentThutu++,
+                testId: testId
+            };
+        });
 
         // Tạo nhiều câu hỏi
         const createdQuestions = await db.TestQuestion.bulkCreate(questionsToCreate);
