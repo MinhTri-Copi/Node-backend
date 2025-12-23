@@ -17,8 +17,37 @@ cors(app);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+// Serve static files from uploads directory with CORS headers
+// IMPORTANT: PDF Viewer requires CORS headers to load PDF files
+app.use('/uploads', (req, res, next) => {
+    // Set CORS headers for static files (required for PDF Viewer)
+    const allowedOrigin = process.env.REACT_URL || 'http://localhost:3000';
+    res.header('Access-Control-Allow-Origin', allowedOrigin);
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Range');
+    res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // Set proper Content-Type for PDF files
+    if (req.path.toLowerCase().endsWith('.pdf')) {
+        res.header('Content-Type', 'application/pdf');
+    }
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    next();
+}, express.static(path.join(__dirname, 'public', 'uploads'), {
+    // Enable range requests for PDF streaming
+    setHeaders: (res, filePath) => {
+        if (filePath.toLowerCase().endsWith('.pdf')) {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Accept-Ranges', 'bytes');
+        }
+    }
+}));
 
 //khai bao view engine
 configViewEngine(app);

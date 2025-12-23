@@ -342,6 +342,11 @@ function buildPrompt(cvText, jdTexts, cvStandards, cvScoring, cvExamples = null,
     // Shortened system prompt to save tokens
     const systemPrompt = `You are an AI CV reviewer. Help candidates IMPROVE their CV, don't create new content.
 Rules: Only suggest improvements to existing content. Don't invent experiences/skills. Return JSON only.
+
+CRITICAL: When you find an issue, you MUST extract the exact_quote (verbatim text) from the CV. 
+- exact_quote must match the original text character-by-character (no paraphrasing, no fixing typos, no rewriting)
+- If the issue is general (no specific text), set exact_quote to null
+- This is required for frontend to highlight the exact location in the PDF
 ${languageInstruction}`;
 
     // Truncate CV text (max ~1500 tokens = 6000 chars)
@@ -434,7 +439,7 @@ Tasks:
 1. Evaluate CV against each rubric criterion and assign scores (0 to max weight for each criterion)
 2. Check format issues → suggest improvements to existing content
 3. Compare CV with JD → suggest how to better present existing content
-4. For each issue: section, original_text (quote from CV), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
+4. For each issue: section, exact_quote (verbatim text from CV - must match character-by-character, or null if general issue), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
 5. ready = true if total score >= 80 and no high severity issues
 
 IMPORTANT: Return criteria_scores for each rubric criterion (summary, skills, experience, education, format, job_matching).
@@ -452,7 +457,7 @@ Return JSON only (suggestion and summary must be in ${cvLanguage === 'vi' ? 'Vie
     "job_matching": 7
   },
   "ready": false,
-  "issues": [{"section": "experience", "original_text": "Worked on backend", "suggestion": ${exampleSuggestion}, "severity": "high"}],
+  "issues": [{"section": "experience", "exact_quote": "Worked on backend", "suggestion": ${exampleSuggestion}, "severity": "high"}],
   "summary": ${exampleSummary}
 }`;
 
@@ -610,6 +615,16 @@ export async function reviewCV(cvText, jdTexts = []) {
         if (!Array.isArray(result.issues)) {
             result.issues = [];
         }
+
+        // Backward compatibility: Support both exact_quote and original_text
+        // Priority: exact_quote > original_text
+        result.issues = result.issues.map(issue => {
+            if (!issue.exact_quote && issue.original_text) {
+                // Fallback: use original_text if exact_quote not provided
+                issue.exact_quote = issue.original_text;
+            }
+            return issue;
+        });
 
         // Validation temporarily disabled - show all issues from LLM
         // TODO: Re-enable validation after fixing matching logic
