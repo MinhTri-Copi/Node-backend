@@ -216,6 +216,42 @@ const extractQuestionsWithRegex = (content) => {
             new Map(allMatches.map(m => [m.number, m])).values()
         ).sort((a, b) => a.number - b.number);
 
+        // === BƯỚC 1: Extract tất cả đáp án trắc nghiệm từ toàn bộ file trước ===
+        const correctAnswerMap = new Map(); // number -> letter (e.g. 1 -> 'B')
+
+        // Pattern tìm tất cả dòng "Đáp án: X" hoặc tương tự, kèm số câu gần nhất
+        const answerLines = content.matchAll(
+            /(?:Câu\s*(\d+)|Câu\s*hỏi\s*(\d+))[\s\n]*.*?Đáp\s*án\s*[:\.]?\s*([A-D])\b/gi
+        );
+
+        let lastQuestionNumber = null;
+        for (const match of answerLines) {
+            const qNum = parseInt(match[1] || match[2]);
+            const letter = match[3].toUpperCase();
+            if (qNum) {
+                correctAnswerMap.set(qNum, letter);
+                lastQuestionNumber = qNum;
+            } else if (lastQuestionNumber && letter) {
+                // Trường hợp không có số câu nhưng có Đáp án (hiếm)
+                correctAnswerMap.set(lastQuestionNumber, letter);
+            }
+        }
+
+        // Fallback thêm: tìm tất cả "Đáp án: X" không kèm số câu, gán tuần tự
+        if (correctAnswerMap.size < uniqueMatches.length) {
+            const globalAnswers = [...content.matchAll(/Đáp\s*án\s*[:\.]?\s*([A-D])\b/gi)];
+            const questionNumbers = uniqueMatches.map(m => m.number);
+            globalAnswers.forEach((m, index) => {
+                const letter = m[1].toUpperCase();
+                const qNum = questionNumbers[index];
+                if (qNum && !correctAnswerMap.has(qNum)) {
+                    correctAnswerMap.set(qNum, letter);
+                }
+            });
+        }
+
+        console.log('🔍 Global extracted correct answers:', Object.fromEntries(correctAnswerMap));
+
         // Try to extract all answers from a separate "Đáp án" section at the end
         // Many files have format: Questions first, then "Đáp án:" section with all answers
         const answerMap = new Map();
@@ -255,30 +291,117 @@ const extractQuestionsWithRegex = (content) => {
         for (const match of uniqueMatches) {
             const text = match.text.trim();
             
+            let questionText = text;
+            let answerText = '';
+            let options = null;
+            
+            // QUAN TRỌNG: Parse options TRƯỚC KHI extract answer
+            // Options có thể nằm trong questionText (A. ... B. ... C. ... D. ...)
+            const lines = questionText.split('\n');
+            const optionLines = [];
+            let questionEndLineIndex = -1;
+            
+            // Find lines that look like options (A. text, B. text, etc.)
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // Check if line starts with A. B. C. or D. (with optional spaces before)
+                // Pattern: "A. text" or "A) text" or "A: text" (at start of line, case insensitive)
+                const optionMatch = line.match(/^\s*([A-D])[\.\):]\s*(.+)$/i);
+                if (optionMatch) {
+                    optionLines.push({
+                        lineIndex: i,
+                        letter: optionMatch[1].toUpperCase(),
+                        text: optionMatch[2].trim()
+                    });
+                    if (questionEndLineIndex === -1) {
+                        questionEndLineIndex = i; // First option line = end of question
+                    }
+                } else if (optionLines.length > 0) {
+                    // If we already found options
+                    if (line.length === 0) {
+                        // Empty line - continue (might be separator)
+                        continue;
+                    } else if (line.match(/^(Đáp án|Answer|Trả lời)/i)) {
+                        // Found answer line - stop here
+                        break;
+                    } else if (line.match(/^\d+\.\s|^Câu\s+\d+/i)) {
+                        // Found next question - stop here
+                        break;
+                    } else {
+                        // Non-empty line that doesn't look like option or answer
+                        // Stop here to be safe
+                        break;
+                    }
+                }
+            }
+            
+            // If we found at least 2 option lines, extract them
+            if (optionLines.length >= 2) {
+                const foundOptions = {};
+                optionLines.forEach(({ letter, text }) => {
+                    // Clean up: remove trailing dots, but keep the text
+                    let cleanText = text.trim();
+                    // Remove trailing period only if it's at the very end (not part of abbreviation)
+                    cleanText = cleanText.replace(/\.$/, '').trim();
+                    if (cleanText && cleanText.length > 0 && cleanText.length < 500) {
+                        foundOptions[letter] = cleanText;
+                    }
+                });
+                
+                if (Object.keys(foundOptions).length >= 2) {
+                    options = foundOptions;
+                    // Remove option lines from question text
+                    if (questionEndLineIndex >= 0) {
+                        questionText = lines.slice(0, questionEndLineIndex).join('\n').trim();
+                    }
+                    console.log(`  ✅ Parse được ${Object.keys(options).length} options: ${Object.keys(options).join(', ')}`);
+                }
+            }
+            
             // Try to find answer patterns (including "Đáp án mẫu:", "Đáp án:", etc.)
-            // QUAN TRỌNG: Dừng trước câu hỏi tiếp theo HOẶC trước "Đáp án mẫu:" của câu tiếp theo
+            // QUAN TRỌNG: Ưu tiên pattern match chữ cái đơn (A/B/C/D) SAU "Đáp án:" trước
             const answerPatterns = [
+                // Pattern 1: Match chỉ chữ cái đơn sau "Đáp án:" (ưu tiên cao nhất)
+                // "Đáp án: B" hoặc "Đáp án:B" hoặc "Đáp án: B "
+                /Đáp án\s*[:\.]\s*([A-D])(?:\s|$|\.|\n|Câu)/gi,
+                /Answer\s*[:\.]\s*([A-D])(?:\s|$|\.|\n)/gi,
+                /Trả lời\s*[:\.]\s*([A-D])(?:\s|$|\.|\n)/gi,
+                // Pattern 2: Match đáp án dài (cho câu tự luận)
                 /Đáp án\s+mẫu[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/gis,
                 /Đáp án[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Đáp án\s+mẫu|🟩|$)/gis,
                 /Answer[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Answer|$)/gis,
                 /Trả lời[:\.]\s*(.+?)(?=\d+\.\s|Câu\s+\d+|Câu\s+hỏi\s+\d+|Question\s+\d+|Q\s*\d+|Trả lời|$)/gis
             ];
 
-            let questionText = text;
-            let answerText = '';
-
-            // Try to extract answer
-            for (const answerPattern of answerPatterns) {
-                const answerMatch = text.match(answerPattern);
-                if (answerMatch) {
-                    questionText = text.substring(0, answerMatch.index).trim();
-                    answerText = answerMatch[1].trim();
-                    break;
+            // === EXTRACT ĐÁP ÁN - DÙNG GLOBAL MAP ===
+            // Nếu có options → là trắc nghiệm → lấy đáp án từ map global
+            if (options && Object.keys(options).length >= 2) {
+                const qNumber = match.number;
+                if (correctAnswerMap.has(qNumber)) {
+                    answerText = correctAnswerMap.get(qNumber);
+                    console.log(`  ✅ Gán đáp án từ global map: "${answerText}" cho câu ${qNumber}`);
+                } else {
+                    console.warn(`  ⚠️ Không tìm thấy đáp án trong map cho câu ${qNumber}`);
+                    answerText = '';
+                }
+            } else {
+                // Không có options, tìm answer như bình thường
+                for (const answerPattern of answerPatterns) {
+                    const answerMatch = text.match(answerPattern);
+                    if (answerMatch) {
+                        questionText = text.substring(0, answerMatch.index).trim();
+                        rawAnswer = answerMatch[1].trim();
+                        answerText = rawAnswer;
+                        break;
+                    }
                 }
             }
 
             // If no answer found, try to split by common separators
-            if (!answerText) {
+            // QUAN TRỌNG: KHÔNG dùng fallback này cho câu trắc nghiệm (đã có options)
+            // Vì fallback này có thể lấy nhầm toàn bộ options vào answerText
+            if (!answerText && (!options || Object.keys(options).length < 2)) {
+                // Chỉ dùng fallback cho câu tự luận (không có options)
                 const separators = [
                     '\n\nĐáp án mẫu',
                     '\nĐáp án mẫu',
@@ -311,8 +434,10 @@ const extractQuestionsWithRegex = (content) => {
             }
             
             // Try to find answer in next section (if answer is after question pattern)
-            // This handles cases where answer is separated by newlines from question
-            if (!answerText) {
+            // QUAN TRỌNG: KHÔNG dùng phần này cho câu trắc nghiệm (đã có options)
+            // Vì có thể lấy nhầm text từ câu hỏi khác
+            if (!answerText && (!options || Object.keys(options).length < 2)) {
+                // Chỉ tìm trong next section cho câu tự luận
                 const currentMatchIndex = content.indexOf(match.fullMatch);
                 if (currentMatchIndex !== -1) {
                     const searchStart = currentMatchIndex + match.fullMatch.length;
@@ -335,7 +460,9 @@ const extractQuestionsWithRegex = (content) => {
             }
             
             // Try to get answer from answer section map (if answers are in a separate section)
-            if (!answerText && answerMap.has(match.number)) {
+            // QUAN TRỌNG: KHÔNG dùng answerMap cho câu trắc nghiệm (đã có options)
+            // Vì answerMap có thể chứa text dài, không phải chữ cái đơn
+            if (!answerText && (!options || Object.keys(options).length < 2) && answerMap.has(match.number)) {
                 answerText = answerMap.get(match.number);
             }
 
@@ -349,12 +476,31 @@ const extractQuestionsWithRegex = (content) => {
 
             // Remove leading/trailing whitespace and newlines
             questionText = questionText.replace(/^\s+|\s+$/g, '').replace(/\n{3,}/g, '\n\n');
-            answerText = answerText.replace(/^\s+|\s+$/g, '').replace(/\n{3,}/g, '\n\n');
+            // QUAN TRỌNG: Chỉ clean answerText nếu không phải là câu trắc nghiệm
+            // Vì câu trắc nghiệm answerText chỉ là chữ cái đơn (A-D), không cần clean
+            if (!options || Object.keys(options).length < 2) {
+                answerText = answerText.replace(/^\s+|\s+$/g, '').replace(/\n{3,}/g, '\n\n');
+            } else {
+                // Câu trắc nghiệm: chỉ trim whitespace, không replace newlines
+                answerText = answerText.trim();
+            }
+            
+            // QUAN TRỌNG: Nếu có options, answerText phải là chữ cái đơn (A-D)
+            // Nếu không phải, có thể đã extract sai → để trống
+            if (options && Object.keys(options).length >= 2) {
+                if (answerText && !/^[A-D]$/i.test(answerText)) {
+                    console.log(`  ⚠️ Warning: Answer "${answerText}" is not A-D for multiple choice, setting to empty`);
+                    answerText = ''; // Sẽ được set thành 'Chưa có đáp án' ở cuối
+                } else if (answerText) {
+                    console.log(`  ✅ Answer is valid for multiple choice: "${answerText}"`);
+                }
+            }
 
             if (questionText && questionText.length > 5) { // Minimum question length (reduced for flexibility)
                 questions.push({
                     question: questionText,
                     answer: answerText || 'Chưa có đáp án',
+                    options: options, // Add options if found
                     rawText: match.fullMatch
                 });
             }
@@ -362,9 +508,12 @@ const extractQuestionsWithRegex = (content) => {
 
         console.log(`✅ Đã extract ${questions.length} câu hỏi bằng regex`);
         
-        // Debug: Log số câu hỏi có đáp án
+        // Debug: Log số câu hỏi có đáp án và có options
         const questionsWithAnswer = questions.filter(q => q.answer && q.answer !== 'Chưa có đáp án').length;
+        const questionsWithOptions = questions.filter(q => q.options && Object.keys(q.options).length >= 2).length;
         console.log(`  📊 Số câu hỏi có đáp án: ${questionsWithAnswer}/${questions.length}`);
+        console.log(`  📊 Số câu hỏi có options (A/B/C/D): ${questionsWithOptions}/${questions.length}`);
+        console.log(`  📊 Số câu hỏi có options (A/B/C/D): ${questionsWithOptions}/${questions.length}`);
         
         return questions;
     } catch (error) {
@@ -757,7 +906,7 @@ const uploadQuestionBank = async (userId, file, data) => {
         }
         
         // Merge questions with their classifications
-        // QUAN TRỌNG: Giữ nguyên answer từ extractedQuestions (không bị mất khi merge)
+        // QUAN TRỌNG: Giữ nguyên answer và options từ extractedQuestions (không bị mất khi merge)
         const classifiedQuestions = extractedQuestions.map((q, index) => {
             const classification = allClassifications[index] || {
                 loaicauhoi: 'tuluan',
@@ -767,10 +916,38 @@ const uploadQuestionBank = async (userId, file, data) => {
                 metadata: []
             };
             
+            // Determine final type: OVERRIDE LLM nếu detect được format trắc nghiệm
+            // Priority: Format detection > LLM classification
+            let finalType = classification.loaicauhoi || 'tuluan';
+            const hasOptions = q.options && Object.keys(q.options).length >= 2;
+            
+            // Debug: Log để kiểm tra
+            console.log(`  🔍 Câu ${index + 1}: LLM phân loại = "${classification.loaicauhoi}", hasOptions = ${hasOptions}, options = ${q.options ? JSON.stringify(q.options) : 'null'}, answer = "${q.answer ? q.answer.substring(0, 50) : 'null'}"`);
+            
+            // Detect trắc nghiệm dựa trên format đáp án
+            let isMultipleChoiceByFormat = false;
+            if (q.answer) {
+                // Pattern 1: Đáp án chỉ là A/B/C/D (đã clean rồi, không cần trim)
+                if (/^[A-D]$/i.test(q.answer)) {
+                    isMultipleChoiceByFormat = true;
+                    console.log(`  ✅ Câu ${index + 1}: Detect trắc nghiệm (Pattern 1: đáp án chỉ là A/B/C/D)`);
+                }
+            }
+            
+            // Override LLM classification nếu detect được format trắc nghiệm
+            if (hasOptions || isMultipleChoiceByFormat) {
+                const oldType = finalType;
+                finalType = 'tracnghiem';
+                console.log(`  🔄 Câu ${index + 1}: OVERRIDE từ "${oldType}" → "tracnghiem" (hasOptions=${hasOptions}, isMultipleChoiceByFormat=${isMultipleChoiceByFormat})`);
+            } else {
+                console.log(`  ℹ️ Câu ${index + 1}: Giữ nguyên phân loại LLM = "${finalType}"`);
+            }
+            
             return {
                 question: q.question || '',
                 answer: q.answer || 'Chưa có đáp án', // Đảm bảo answer được giữ lại
-                loaicauhoi: classification.loaicauhoi,
+                options: q.options || null, // Giữ lại options nếu có
+                loaicauhoi: finalType,
                 chude: classification.chude,
                 dodai: classification.dodai,
                 dokho: classification.dokho,
@@ -780,6 +957,11 @@ const uploadQuestionBank = async (userId, file, data) => {
         
         const classificationTime = Date.now() - classificationStartTime;
         console.log(`✅ Đã phân loại ${classifiedQuestions.length} câu hỏi trong ${classificationTime}ms (${(classificationTime / 1000).toFixed(2)}s)`);
+        
+        // Debug: Log số câu trắc nghiệm sau khi merge
+        const tracnghiemCount = classifiedQuestions.filter(q => q.loaicauhoi === 'tracnghiem').length;
+        const tracnghiemWithOptions = classifiedQuestions.filter(q => q.loaicauhoi === 'tracnghiem' && q.options && Object.keys(q.options).length >= 2).length;
+        console.log(`  📊 Số câu trắc nghiệm: ${tracnghiemCount} (${tracnghiemWithOptions} có options)`);
 
         // B4: Create QuestionBankItems with classification
         const itemsToCreate = classifiedQuestions.map((q, index) => ({
@@ -787,6 +969,7 @@ const uploadQuestionBank = async (userId, file, data) => {
             Dapan: q.answer || 'Chưa có đáp án',
             Chude: q.chude || 'Khác',
             Loaicauhoi: q.loaicauhoi || 'tuluan',
+            Options: q.options || null, // Lưu các lựa chọn A/B/C/D nếu có
             Diem: 10, // Default score
             Dodai: q.dodai || 'trungbinh',
             Dokho: q.dokho || 'trungbinh',
@@ -1001,7 +1184,7 @@ const getQuestionBankItems = async (userId, filters = {}) => {
                 where: bankWhere,
                 attributes: ['id', 'Ten', 'FileName']
             }],
-            attributes: ['id', 'Cauhoi', 'Dapan', 'Chude', 'Loaicauhoi', 'Diem', 'Dodai', 'Dokho'],
+            attributes: ['id', 'Cauhoi', 'Dapan', 'Chude', 'Loaicauhoi', 'Diem', 'Dodai', 'Dokho', 'Options'],
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['id', 'ASC']]

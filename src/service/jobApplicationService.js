@@ -389,7 +389,7 @@ const startTestForApplication = async (userId, applicationId) => {
                     include: [{
                         model: db.TestQuestion,
                         as: 'Questions',
-                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu']
+                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu', 'Options']
                     }]
                 },
                 {
@@ -438,7 +438,7 @@ const getTestSubmissionDetail = async (userId, submissionId) => {
                     include: [{
                         model: db.TestQuestion,
                         as: 'Questions',
-                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu']
+                        attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu', 'Options']
                     }]
                 },
                 {

@@ -244,6 +244,7 @@ const addQuestion = async (userId, testId, questionData) => {
             Cauhoi: questionData.Cauhoi,
             Dapan: questionData.Dapan,
             Loaicauhoi: questionData.Loaicauhoi || 'tuluan',
+            Options: questionData.Options || null, // Copy Options nếu có
             Diem: questionData.Diem || 10,
             Thutu: questionData.Thutu || nextThutu,
             testId: testId
@@ -366,6 +367,7 @@ const addMultipleQuestions = async (userId, testId, questions) => {
             Cauhoi: q.Cauhoi,
             Dapan: q.Dapan,
             Loaicauhoi: q.Loaicauhoi || 'tuluan',
+            Options: q.Options || null, // Copy Options nếu có
             Diem: q.Diem || 10,
             Thutu: q.Thutu || currentThutu++,
             testId: testId

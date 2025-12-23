@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.ENUM('tuluan', 'tracnghiem'),
             defaultValue: 'tuluan'
         },
+        Options: {
+            type: DataTypes.JSON,
+            defaultValue: null,
+            comment: 'Các lựa chọn cho câu trắc nghiệm (A, B, C, D) - Format: {A: "text", B: "text", C: "text", D: "text"}'
+        },
         Diem: {
             type: DataTypes.INTEGER,
             defaultValue: 10

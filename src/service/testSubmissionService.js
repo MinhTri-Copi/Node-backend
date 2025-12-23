@@ -355,7 +355,7 @@ const getSubmissionForGrading = async (hrUserId, submissionId) => {
                         {
                             model: db.TestQuestion,
                             as: 'Question',
-                            attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu']
+                            attributes: ['id', 'Cauhoi', 'Dapan', 'Loaicauhoi', 'Diem', 'Thutu', 'Options']
                         },
                         {
                             model: db.GradingLog,
