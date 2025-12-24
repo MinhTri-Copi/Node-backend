@@ -1,0 +1,87 @@
+=== CV TEXT DEBUG ===
+Record ID: 37
+User ID: 34
+Extracted At: Wed Dec 24 2025 00:56:00 GMT+0700 (Indochina Time)
+Length: 2579 characters
+
+=== CV TEXT ===
+Nguyễn Thị Quỳnh Như
+Hồ Chí Minh • ntqnhu.1504@gmail.com • +84-898133460
+Skilled in C#, ASP.NET, React, and SQL Server, with experience developing and maintaining web-
+based management systems that improved processing efficiency by 20%.
+Focused on building scalable, maintainable software solutions aligned with enterprise needs.
+Aiming to contribute to high-quality software development projects through strong teamwork and
+problem-solving skills.
+EDUCATION
+Ho Chi Minh City University of Technology 2022 - Now
+Software Engineering
+GPA: 3.3/4
+PROJECT
+Science and Technology Management System 05/10/2025 - Now
+Developer
+- Collaborated with a 5-member team to engineer backend modules using C# (.NET) and NodeJS,
+streamlining management of research projects, contracts, and evaluations.
+- Designed and optimized SQL Server database queries, enhancing data accuracy and operational
+efficiency.
+- Assisted in developing frontend components with TypeScript, integrating dynamic dashboards and
+comprehensive reporting features.
+- Contributed to orchestrating workflow enhancements that increased efficiency and minimized data
+errors across multiple research initiatives.
+Eastern Bus Station Management Website 04/2025 - 06/2025
+Backend Developer
+- Designed and implemented robust backend services for managing bus routes, driver profiles, and
+ticket bookings using Node.js and MongoDB, enhancing data handling efficiency.
+- Applied JWT-based authentication and role-based access controls for admin and customer roles,
+fortifying system security and user management.
+- Integrated backend systems with Vite-powered frontend to enable real-time ticket management and
+seamless user interactions.
+- Improved system reliability and minimized data errors, ensuring smooth operations and scalability
+for multiple concurrent users.
+Personal Finance Management Website 03/2025 - 05/2025
+Backend Developer
+- Implemented secure user authentication and authorization utilizing JWT to safeguard sensitive
+financial data.
+- Developed robust backend APIs with Node.js and MongoDB to efficiently track income, expenses,
+and generate comprehensive financial statistics.
+- Collaborated with the ReactJS frontend team to integrate dynamic and interactive financial
+dashboards, enhancing user experience.
+- Enhanced system reliability and data accuracy, increasing transaction handling efficiency by 25%.
+SKILL, LANGUAGE & INTEREST
+Skills
+Languages
+Interests
+TypeScript, Gitlab, .NET, SQL Server, Node.js, C#, MongoDB, Vite, Git, React.js
+English (Intermediate)
+Technical, Music, Research & learning, Game
+
+=== JD TEXTS ===
+
+--- JD 1 ---
+Tuyển dụng Thực tập sinh Tester (Manual/API) - Có lương/Hỗ trợ dấu mộc
+
+MÔ TẢ CÔNG VIỆC:
+Phân tích yêu cầu dự án, tài liệu thiết kế để hiểu rõ nghiệp vụ (Logic & Flow).
+Viết Test Plan, thiết kế Test Case chi tiết cho các dự án Web/App.
+Thực hiện kiểm thử thủ công (Manual Testing): Functional Testing, UI/UX Testing.
+Thực hiện kiểm thử API cơ bản sử dụng công cụ Postman.
+Log bug, theo dõi tiến độ fix bug và xác nhận (Verify) lỗi trên các công cụ quản lý.
+Viết báo cáo kết quả kiểm thử (Test Report) gửi cho quản lý/mentor.
+Phối hợp với đội ngũ Dev để đảm bảo chất lượng sản phẩm đầu ra.
+YÊU CẦU CÔNG VIỆC:
+Học vấn: Sinh viên năm cuối hoặc mới tốt nghiệp chuyên ngành CNTT, Phần mềm hoặc các ngành liên quan.
+Kiến thức nền tảng:
+Nắm vững quy trình kiểm thử phần mềm cơ bản.
+Có tư duy logic tốt, cẩn thận, tỉ mỉ (Pixel-perfect là một lợi thế).
+Hiểu biết về ngôn ngữ truy vấn cơ sở dữ liệu SQL (MySQL) ở mức cơ bản (Select, Join...).
+Kỹ năng chuyên môn:
+Biết viết Test case, Test scenario.
+Biết sử dụng Postman để test API là một lợi thế lớn.
+Có kiến thức cơ bản về HTML/CSS hoặc lập trình (OOP) là điểm cộng.
+Công cụ: Biết sử dụng cơ bản Git, VS Code.
+Kỹ năng mềm: Có khả năng làm việc nhóm, chủ động học hỏi và tinh thần trách nhiệm cao.
+Ngoại ngữ: Tiếng Anh đọc hiểu tài liệu cơ bản (Tương đương B1 trở lên).
+QUYỀN LỢI:
+Được đào tạo bài bản quy trình làm việc thực tế (Agile/Scrum).
+Được hướng dẫn trực tiếp (Mentorship) từ các Senior Tester.
+Hỗ trợ dấu mộc thực tập và phụ cấp thực tập (Allowance) theo năng lực.
+Cơ hội trở thành nhân viên chính thức sau kỳ thực tập.
