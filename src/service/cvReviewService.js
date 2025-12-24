@@ -136,6 +136,54 @@ function parseJSONFromResponse(responseText) {
         } catch (error) {
             console.warn(`  ⚠️ JSON parse error (object): ${error.message}`);
             console.warn(`  📝 Attempted to parse (${jsonString.length} chars): ${jsonString.substring(0, 300)}...`);
+            
+            // Check if response might be truncated (ends abruptly without closing braces)
+            const openBraces = (jsonString.match(/\{/g) || []).length;
+            const closeBraces = (jsonString.match(/\}/g) || []).length;
+            const openBrackets = (jsonString.match(/\[/g) || []).length;
+            const closeBrackets = (jsonString.match(/\]/g) || []).length;
+            
+            // If response appears truncated (more open than close), try to repair
+            if (openBraces > closeBraces || openBrackets > closeBrackets) {
+                console.warn(`  ⚠️  Response appears truncated (unclosed braces/brackets). Attempting to repair...`);
+                let repaired = jsonString;
+                
+                // Close unclosed brackets first
+                for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                    repaired += ']';
+                }
+                
+                // Close unclosed string values if any
+                const lastQuoteIndex = repaired.lastIndexOf('"');
+                const lastColonIndex = repaired.lastIndexOf(':');
+                if (lastColonIndex > lastQuoteIndex && !repaired.substring(lastQuoteIndex + 1).includes('"')) {
+                    // String value not closed, try to close it
+                    const beforeLastQuote = repaired.substring(0, lastQuoteIndex + 1);
+                    const afterLastQuote = repaired.substring(lastQuoteIndex + 1);
+                    // Find where the value should end (before next comma, brace, or bracket)
+                    const valueEndMatch = afterLastQuote.match(/^[^,}\]]*/);
+                    if (valueEndMatch) {
+                        repaired = beforeLastQuote + valueEndMatch[0] + '"' + afterLastQuote.substring(valueEndMatch[0].length);
+                    }
+                }
+                
+                // Close unclosed braces
+                for (let i = 0; i < openBraces - closeBraces; i++) {
+                    repaired += '}';
+                }
+                
+                // Remove trailing commas before closing
+                repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+                
+                try {
+                    const parsed = JSON.parse(repaired);
+                    console.log(`  ✅ Successfully repaired truncated JSON`);
+                    return parsed;
+                } catch (repairError) {
+                    console.warn(`  ⚠️  Repair attempt failed: ${repairError.message}`);
+                }
+            }
+            
             // Try to extract valid JSON using regex as fallback
             const objMatch = jsonString.match(/\{[\s\S]*\}/);
             if (objMatch) {
@@ -343,10 +391,14 @@ function buildPrompt(cvText, jdTexts, cvStandards, cvScoring, cvExamples = null,
     const systemPrompt = `You are an AI CV reviewer. Help candidates IMPROVE their CV, don't create new content.
 Rules: Only suggest improvements to existing content. Don't invent experiences/skills. Return JSON only.
 
-CRITICAL: When you find an issue, you MUST extract the exact_quote (verbatim text) from the CV. 
-- exact_quote must match the original text character-by-character (no paraphrasing, no fixing typos, no rewriting)
-- If the issue is general (no specific text), set exact_quote to null
-- This is required for frontend to highlight the exact location in the PDF
+CRITICAL: You MUST identify a specific text anchor (exact_quote) for every issue so the UI can highlight it. Do not return null unless the CV is empty.
+Follow these priority rules to select the exact_quote:
+1. **Direct Error:** If fixing a specific sentence/phrase, quote that exact text verbatim.
+2. **Missing Information:** If suggesting to ADD something (e.g., 'Add Node.js skill'), quote the **Section Header** (e.g., 'SKILLS', 'TECHNICAL STACK') or the last item in that list where the new info should go.
+3. **Vague Section:** If a whole section needs rewriting (e.g., 'Summary is too weak'), quote the **first sentence** of that section.
+4. **Format/General:** If the issue is about overall formatting, quote the **Candidate's Name** or the **CV Title** at the top.
+
+**Constraint:** exact_quote must exist in the input text character-for-character (no paraphrasing, no fixing typos, no rewriting). This is required for frontend to highlight the exact location in the PDF.
 ${languageInstruction}`;
 
     // Truncate CV text (max ~1500 tokens = 6000 chars)
@@ -439,7 +491,7 @@ Tasks:
 1. Evaluate CV against each rubric criterion and assign scores (0 to max weight for each criterion)
 2. Check format issues → suggest improvements to existing content
 3. Compare CV with JD → suggest how to better present existing content
-4. For each issue: section, exact_quote (verbatim text from CV - must match character-by-character, or null if general issue), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
+4. For each issue: section, exact_quote (MUST be a text anchor from CV following priority rules: 1) Direct error text, 2) Section header for missing info, 3) First sentence for vague sections, 4) Candidate name/title for format issues - must match character-by-character), suggestion (how to improve in ${cvLanguage === 'vi' ? 'Vietnamese' : 'English'}), severity (low/medium/high)
 5. ready = true if total score >= 80 and no high severity issues
 
 IMPORTANT: Return criteria_scores for each rubric criterion (summary, skills, experience, education, format, job_matching).
@@ -534,10 +586,20 @@ export async function reviewCV(cvText, jdTexts = []) {
         console.log(`   Prompt optimized for local LLM (Qwen 7B, 16GB RAM, context window: 4096 tokens)`);
         
         // Adjust max_tokens based on available context
-        // Context window: 4096, reserve ~500 for overhead, prompt uses ~promptSize
-        const availableForResponse = 4096 - promptSize - 500;
-        const maxTokens = Math.min(1500, Math.max(500, availableForResponse));
-        console.log(`   Max tokens for response: ${maxTokens}`);
+        // Context window: 4096, reserve ~200-250 for overhead (reduced from 500 to allow more response tokens)
+        // Minimum 1000 tokens for response to ensure complete JSON (increased from 500)
+        const CONTEXT_WINDOW = 4096;
+        const RESERVE_OVERHEAD = 250; // Reduced from 500 to allow more response space
+        const MIN_RESPONSE_TOKENS = 1000; // Increased from 500 to ensure complete JSON
+        const MAX_RESPONSE_TOKENS = 2000; // Increased from 1500 for complex CVs
+        
+        const availableForResponse = CONTEXT_WINDOW - promptSize - RESERVE_OVERHEAD;
+        const maxTokens = Math.min(MAX_RESPONSE_TOKENS, Math.max(MIN_RESPONSE_TOKENS, availableForResponse));
+        
+        if (maxTokens < MIN_RESPONSE_TOKENS) {
+            console.warn(`⚠️  Warning: Only ${maxTokens} tokens available for response (minimum recommended: ${MIN_RESPONSE_TOKENS}). Response may be truncated.`);
+        }
+        console.log(`   Max tokens for response: ${maxTokens} (available: ${availableForResponse}, reserved overhead: ${RESERVE_OVERHEAD})`);
 
         // Call LLM with increased timeout (10 minutes = 600000ms)
         stepStartTime = Date.now();
@@ -566,7 +628,15 @@ export async function reviewCV(cvText, jdTexts = []) {
         if (!result) {
             console.error('❌ Failed to parse LLM response as JSON');
             console.error('   Raw response:', responseText.substring(0, 500));
-            throw new Error('LLM không trả về JSON hợp lệ!');
+            
+            // Check if response was truncated (ends abruptly)
+            const isTruncated = !responseText.trim().endsWith('}') && responseText.length > 1000;
+            if (isTruncated) {
+                console.error('   ⚠️  Response appears to be truncated (max_tokens too small).');
+                console.error(`   💡 Suggestion: Increase max_tokens or reduce prompt size. Current max_tokens: ${maxTokens}`);
+            }
+            
+            throw new Error('LLM không trả về JSON hợp lệ!' + (isTruncated ? ' (Response bị cắt do thiếu tokens)' : ''));
         }
 
         // Calculate total score from criteria_scores if available (preferred method)
