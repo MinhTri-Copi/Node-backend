@@ -403,15 +403,15 @@ Follow these priority rules to select the exact_quote:
 **IMPORTANT:** Only return issues that actually exist in the provided CV text. Do NOT copy example issues from the prompt template. If no issues are found, return an empty issues array [].
 ${languageInstruction}`;
 
-    // Truncate CV text (max ~800 tokens = 3200 chars, optimized to maximize response tokens)
-    const MAX_CV_TOKENS = 800;
+    // Truncate CV text (max ~600 tokens = 2400 chars, further optimized to maximize response tokens)
+    const MAX_CV_TOKENS = 600;
     const truncatedCV = truncateToTokens(cvText, MAX_CV_TOKENS);
     if (cvText.length > truncatedCV.length) {
         console.warn(`⚠️  CV text truncated from ${cvText.length} to ${truncatedCV.length} chars to fit context window`);
     }
 
-    // Truncate JD texts (max ~200 tokens each = 800 chars each, optimized to maximize response tokens)
-    const MAX_JD_TOKENS = 200;
+    // Truncate JD texts (max ~150 tokens each = 600 chars each, further optimized to maximize response tokens)
+    const MAX_JD_TOKENS = 150;
     let jdSection = '';
     if (jdTexts && jdTexts.length > 0) {
         jdSection = '\n\n=== JOB DESCRIPTIONS ===\n';
@@ -429,10 +429,14 @@ ${languageInstruction}`;
     // Include reference CVs for few-shot learning (in-context learning)
     // Purpose: Guide AI evaluation style (score calibration, issue severity, wording style)
     let examplesSection = '';
+    // Optimize cvStandards and cvScoring JSON size (remove unnecessary whitespace)
+    const cvStandardsStr = JSON.stringify(cvStandards); // Compact JSON
+    const cvScoringStr = JSON.stringify(cvScoring); // Compact JSON
+    
     // Estimate current prompt size first
-    const currentPromptSize = estimateTokens(systemPrompt + truncatedCV + jdSection + JSON.stringify(cvStandards) + JSON.stringify(cvScoring));
-    // Reserve at least 2500 tokens for response (priority: response > examples)
-    const availableTokens = 4096 - currentPromptSize - 2500;
+    const currentPromptSize = estimateTokens(systemPrompt + truncatedCV + jdSection + cvStandardsStr + cvScoringStr);
+    // Reserve at least 2800 tokens for response (priority: response > examples)
+    const availableTokens = 4096 - currentPromptSize - 2800;
     
     if (cvExamples && cvExamples.length > 0) {
         // Detect CV role to select relevant examples
@@ -479,12 +483,12 @@ ${languageInstruction}`;
         ? '"Tóm tắt ngắn gọn bằng tiếng Việt"'
         : '"Brief summary in English"';
 
-    // Shortened user prompt to save tokens
+    // Shortened user prompt to save tokens (compact JSON, no pretty printing)
     const userPrompt = `CV Standards:
-${JSON.stringify(cvStandards, null, 1)}
+${cvStandardsStr}
 
 Scoring Rubric:
-${JSON.stringify(cvScoring, null, 1)}
+${cvScoringStr}
 ${examplesSection}
 Candidate CV:
 ${truncatedCV}
@@ -596,21 +600,24 @@ export async function reviewCV(cvText, jdTexts = []) {
         // Context window: 4096 (model limit), reserve ~100 for overhead (minimal to maximize response)
         // Priority: Maximize response tokens to avoid truncation
         const CONTEXT_WINDOW = 4096; // Model's actual context window limit
-        const RESERVE_OVERHEAD = 100; // Minimal overhead to maximize response tokens
-        const MIN_RESPONSE_TOKENS = 2500; // Increased to ensure complete JSON for complex CVs
-        const MAX_RESPONSE_TOKENS = 3800; // Maximum within 4096 limit (prompt ~200-300 tokens after optimization)
+        const RESERVE_OVERHEAD = 50; // Minimal overhead to maximize response tokens
+        const MIN_RESPONSE_TOKENS = 2800; // Increased to ensure complete JSON for complex CVs
+        const MAX_RESPONSE_TOKENS = 3900; // Maximum within 4096 limit (prompt ~100-200 tokens after optimization)
         
         const availableForResponse = CONTEXT_WINDOW - promptSize - RESERVE_OVERHEAD;
         // Prioritize response tokens: use available space, but ensure at least MIN_RESPONSE_TOKENS
         let maxTokens = Math.min(MAX_RESPONSE_TOKENS, availableForResponse);
         
-        // If prompt is too large, reduce it further and ensure minimum response tokens
+        // If prompt is too large, still try to maximize response tokens
         if (maxTokens < MIN_RESPONSE_TOKENS) {
             console.warn(`⚠️  Warning: Prompt too large (${promptSize} tokens). Only ${maxTokens} tokens available for response (minimum recommended: ${MIN_RESPONSE_TOKENS}).`);
             console.warn(`   💡 Consider reducing CV/JD text or examples to allow more response tokens.`);
-            // Still use available space, but warn user
-            maxTokens = Math.max(1500, availableForResponse); // At least 1500 tokens even if below minimum
+            // Use all available space, but ensure at least 2000 tokens
+            maxTokens = Math.max(2000, availableForResponse); // At least 2000 tokens even if below minimum
         }
+        
+        // Final adjustment: ensure maxTokens is reasonable (at least 2000, up to 3900)
+        maxTokens = Math.max(2000, Math.min(3900, maxTokens));
         console.log(`   Max tokens for response: ${maxTokens} (available: ${availableForResponse}, prompt size: ${promptSize}, reserved overhead: ${RESERVE_OVERHEAD})`);
         
         // Final safety check: ensure we have reasonable response tokens
