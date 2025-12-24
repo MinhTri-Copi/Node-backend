@@ -1,0 +1,111 @@
+=== CV TEXT DEBUG ===
+Record ID: 38
+User ID: 34
+Extracted At: Wed Dec 24 2025 00:56:57 GMT+0700 (Indochina Time)
+Length: 2087 characters
+
+=== CV TEXT ===
+0827169704
+✉
+tramtram232306@gmail.co
+m
+
+Thu Duc City, Ho Chi Minh
+City
+Học Vấn
+Đại học Công Nghệ TP.HCM
+Công nghệ thông tin
+2022-Present
+GPA hiện tại : 2.9
+Kỹ Năng
+QA/Testing
+•API Testing: Postman
+(request/collection,
+environment), test case, bug
+report cơ bản
+•Functional Testing, kiểm tra
+luồng nghiệp vụ, UI checking
+•Backend / Programming (Nền
+tảng)
+•OOP (cơ bản), tư duy logic, đọc
+hiểu luồng xử lý
+Database
+Trịnh Bảo Trâm
+Tester Intern
+Mục Tiêu Nghề Nghiệp
+Giới thiệu bản thân
+Sinh viên năm cuối ngành CNTT tại HUTECH (GPA 2.9/4.0), định hướng
+Tester Intern. Có kinh nghiệm qua dự án thực hành với kiểm thử API
+bằng Postman, viết test case, ghi nhận lỗi và phối hợp đề xuất hướng
+xử lý. Nắm nền tảng OOP, SQL/MySQL, quy trình phát triển phần mềm
+cơ bản; sử dụng tốt Git và VS Code. Mong muốn tham gia môi trường
+thực tế để nâng kỹ năng chuyên môn và đóng góp hiệu quả cho dự án.
+Dự Án
+Website Bán Điện Thoại Trực Tuyến (Online Mobile Store Website)
+(02/2025-04/2025)
+Tester
+•Sử dụng Postman để kiểm thử API cho các chức năng: đăng ký, đăng
+nhập, tìm kiếm sản phẩm, giỏ hàng, đặt hàng, thanh toán và quản lý
+đơn hàng.
+Thiết kế và thực hiện 15 test case với các phương thức CRUD.
+Ghi nhận kết quả kiểm thử, tạo báo cáo lỗi chi tiết và đề xuất hướng
+khắc phục.
+Công nghệ/Tool: Postman, REST API, SQL/MySQL (truy vấn cơ bản),
+Git, VS Code.
+Website Hệ thống Quản lý Spa (Spa Management Website)
+(04/2025-06/2025)
+Tester
+Phân tích yêu cầu và thiết kế test case cho các chức năng: đặt lịch
+dịch vụ, quản lý khách hàng, sản phẩm và nhân viên.
+Thực hiện kiểm thử chức năng (Functional Testing) và giao diện (UI
+Testing).
+Kiểm thử quy trình đăng ký – thanh toán – phản hồi dịch vụ để đảm
+bảo tính ổn định và chính xác.
+Ghi nhận kết quả kiểm thử và tạo báo lỗi chi tiết.
+Công nghệ/Tool: Postman, SQL/MySQL, Git, VS Code.
+Chứng Chỉ
+•SQL cơ bản: SELECT, JOIN đơn
+giản, lọc dữ liệu; MySQL
+Tools
+•Git (commit/pull/push cơ bản),
+VS Code
+Soft skills
+•Làm việc nhóm, chủ động học
+hỏi, giao tiếp và báo cáo tiến
+độ rõ ràng
+2025Chứng Chỉ Ngoại Ngữ CEF-B1
+Sở Thích
+Du lịch - nghe nhạc- Mèo
+© topcv.vn
+
+=== JD TEXTS ===
+
+--- JD 1 ---
+Tuyển dụng Thực tập sinh Tester (Manual/API) - Có lương/Hỗ trợ dấu mộc
+
+MÔ TẢ CÔNG VIỆC:
+Phân tích yêu cầu dự án, tài liệu thiết kế để hiểu rõ nghiệp vụ (Logic & Flow).
+Viết Test Plan, thiết kế Test Case chi tiết cho các dự án Web/App.
+Thực hiện kiểm thử thủ công (Manual Testing): Functional Testing, UI/UX Testing.
+Thực hiện kiểm thử API cơ bản sử dụng công cụ Postman.
+Log bug, theo dõi tiến độ fix bug và xác nhận (Verify) lỗi trên các công cụ quản lý.
+Viết báo cáo kết quả kiểm thử (Test Report) gửi cho quản lý/mentor.
+Phối hợp với đội ngũ Dev để đảm bảo chất lượng sản phẩm đầu ra.
+YÊU CẦU CÔNG VIỆC:
+Học vấn: Sinh viên năm cuối hoặc mới tốt nghiệp chuyên ngành CNTT, Phần mềm hoặc các ngành liên quan.
+Kiến thức nền tảng:
+Nắm vững quy trình kiểm thử phần mềm cơ bản.
+Có tư duy logic tốt, cẩn thận, tỉ mỉ (Pixel-perfect là một lợi thế).
+Hiểu biết về ngôn ngữ truy vấn cơ sở dữ liệu SQL (MySQL) ở mức cơ bản (Select, Join...).
+Kỹ năng chuyên môn:
+Biết viết Test case, Test scenario.
+Biết sử dụng Postman để test API là một lợi thế lớn.
+Có kiến thức cơ bản về HTML/CSS hoặc lập trình (OOP) là điểm cộng.
+Công cụ: Biết sử dụng cơ bản Git, VS Code.
+Kỹ năng mềm: Có khả năng làm việc nhóm, chủ động học hỏi và tinh thần trách nhiệm cao.
+Ngoại ngữ: Tiếng Anh đọc hiểu tài liệu cơ bản (Tương đương B1 trở lên).
+QUYỀN LỢI:
+Được đào tạo bài bản quy trình làm việc thực tế (Agile/Scrum).
+Được hướng dẫn trực tiếp (Mentorship) từ các Senior Tester.
+Hỗ trợ dấu mộc thực tập và phụ cấp thực tập (Allowance) theo năng lực.
+Cơ hội trở thành nhân viên chính thức sau kỳ thực tập.
