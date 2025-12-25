@@ -18,6 +18,8 @@ import questionBankController from '../controller/questionBankController';
 import trainingDataController from '../controller/trainingDataController';
 import cvMatchingController from '../controller/cvMatchingController.js';
 import cvReviewController from '../controller/cvReviewController.js';
+import virtualInterviewController from '../controller/virtualInterviewController.js';
+import virtualInterviewVoiceController from '../controller/virtualInterviewVoiceController.js';
 import upload from '../middleware/uploadCV';
 import uploadQuestionBank from '../middleware/uploadQuestionBank';
 import verifyJWT from '../middleware/verifyJWT';
@@ -187,6 +189,26 @@ const initWebRoutes = (app) => {
     
     // API HR Documents Management (Require JWT + HR Role)
     app.get("/api/hr/documents", verifyJWT.verifyJWT, verifyJWT.requireRole(2), applicationDocumentController.getAllDocumentsForHr);
+
+    // API Virtual Interview (Require JWT + Candidate Role)
+    // Note: Assuming candidate roleId is 1, adjust if different
+    app.post("/api/virtual-interview/create", verifyJWT.verifyJWT, virtualInterviewController.createVirtualInterview);
+    app.post("/api/virtual-interview/:id/generate-questions", verifyJWT.verifyJWT, virtualInterviewController.generateQuestions);
+    app.get("/api/virtual-interview/:id", verifyJWT.verifyJWT, virtualInterviewController.getVirtualInterview);
+    app.get("/api/virtual-interview/:id/question/:questionId", verifyJWT.verifyJWT, virtualInterviewController.getQuestion);
+    app.post("/api/virtual-interview/:id/answer", verifyJWT.verifyJWT, virtualInterviewController.saveAnswer);
+    app.post("/api/virtual-interview/:id/complete", verifyJWT.verifyJWT, virtualInterviewController.completeInterview);
+    app.post("/api/virtual-interview/:id/grade", verifyJWT.verifyJWT, virtualInterviewController.gradeInterview);
+    app.get("/api/virtual-interview/:id/result", verifyJWT.verifyJWT, virtualInterviewController.getResult);
+    app.get("/api/virtual-interview/history", verifyJWT.verifyJWT, virtualInterviewController.getHistory);
+    app.delete("/api/virtual-interview/:id", verifyJWT.verifyJWT, virtualInterviewController.deleteVirtualInterview);
+
+    // API Virtual Interview Voice (Voice conversation with AI HR)
+    app.post("/api/virtual-interview/:id/voice/start", verifyJWT.verifyJWT, virtualInterviewVoiceController.startVoiceConversation);
+    app.post("/api/virtual-interview/:id/voice/response", verifyJWT.verifyJWT, virtualInterviewVoiceController.processVoiceResponse);
+    app.post("/api/virtual-interview/voice/text-to-speech", verifyJWT.verifyJWT, virtualInterviewVoiceController.textToSpeech);
+    app.post("/api/virtual-interview/voice/speech-to-text", verifyJWT.verifyJWT, virtualInterviewVoiceController.speechToText);
+    app.get("/api/virtual-interview/:id/voice/history", verifyJWT.verifyJWT, virtualInterviewVoiceController.getConversationHistory);
 
     // API Utilities
     app.get("/api/majors", utilityController.getAllMajors);
