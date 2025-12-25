@@ -57,25 +57,19 @@ const parseJSONFromResponse = (responseText) => {
 };
 
 /**
- * Build grading prompt based on language
+ * Build grading prompt (OPTIMIZED - MINIMAL TOKENS)
  */
 const buildGradingPrompt = (level, topic, language, questionText, candidateAnswer) => {
-    const prompts = {
-        'vi': {
-            'intern': `Hãy chấm điểm câu trả lời này cho ứng viên trình độ INTERN về chủ đề ${topic}.\n\nCâu hỏi: ${questionText}\n\nCâu trả lời: ${candidateAnswer}\n\nChấm điểm từ 0-10 dựa trên: kiến thức cơ bản, độ chính xác, đầy đủ. Trả lời BẰNG TIẾNG VIỆT. Chỉ trả về JSON: {"score": số điểm, "feedback": "nhận xét ngắn gọn"}`,
-            'junior': `Hãy chấm điểm câu trả lời này cho ứng viên trình độ JUNIOR về chủ đề ${topic}.\n\nCâu hỏi: ${questionText}\n\nCâu trả lời: ${candidateAnswer}\n\nChấm điểm từ 0-10 dựa trên: kỹ năng thực hành, ứng dụng thực tế, giải quyết vấn đề. Trả lời BẰNG TIẾNG VIỆT. Chỉ trả về JSON: {"score": số điểm, "feedback": "nhận xét ngắn gọn"}`,
-            'middle': `Hãy chấm điểm câu trả lời này cho ứng viên trình độ MIDDLE về chủ đề ${topic}.\n\nCâu hỏi: ${questionText}\n\nCâu trả lời: ${candidateAnswer}\n\nChấm điểm từ 0-10 dựa trên: tối ưu hóa, best practice, xử lý edge case. Trả lời BẰNG TIẾNG VIỆT. Chỉ trả về JSON: {"score": số điểm, "feedback": "nhận xét ngắn gọn"}`,
-            'senior': `Hãy chấm điểm câu trả lời này cho ứng viên trình độ SENIOR về chủ đề ${topic}.\n\nCâu hỏi: ${questionText}\n\nCâu trả lời: ${candidateAnswer}\n\nChấm điểm từ 0-10 dựa trên: thiết kế hệ thống, trade-off, tư duy kiến trúc. Trả lời BẰNG TIẾNG VIỆT. Chỉ trả về JSON: {"score": số điểm, "feedback": "nhận xét ngắn gọn"}`
-        },
-        'en': {
-            'intern': `Grade this answer for an INTERN level candidate about ${topic}.\n\nQuestion: ${questionText}\n\nAnswer: ${candidateAnswer}\n\nScore from 0-10 based on: basic knowledge, accuracy, completeness. Respond in ENGLISH. Return only JSON: {"score": score number, "feedback": "brief feedback"}`,
-            'junior': `Grade this answer for a JUNIOR level candidate about ${topic}.\n\nQuestion: ${questionText}\n\nAnswer: ${candidateAnswer}\n\nScore from 0-10 based on: practical skills, real-world application, problem-solving. Respond in ENGLISH. Return only JSON: {"score": score number, "feedback": "brief feedback"}`,
-            'middle': `Grade this answer for a MIDDLE level candidate about ${topic}.\n\nQuestion: ${questionText}\n\nAnswer: ${candidateAnswer}\n\nScore from 0-10 based on: optimization, best practices, edge case handling. Respond in ENGLISH. Return only JSON: {"score": score number, "feedback": "brief feedback"}`,
-            'senior': `Grade this answer for a SENIOR level candidate about ${topic}.\n\nQuestion: ${questionText}\n\nAnswer: ${candidateAnswer}\n\nScore from 0-10 based on: system design, trade-offs, architectural thinking. Respond in ENGLISH. Return only JSON: {"score": score number, "feedback": "brief feedback"}`
-        }
-    };
-
-    return prompts[language]?.[level] || prompts['vi'][level];
+    // Truncate long texts to save tokens
+    const q = questionText.length > 150 ? questionText.substring(0, 150) + '...' : questionText;
+    const a = candidateAnswer.length > 200 ? candidateAnswer.substring(0, 200) + '...' : candidateAnswer;
+    
+    // Ultra-minimal prompts
+    if (language === 'vi') {
+        return `Chấm ${level} ${topic}. Q: ${q} A: ${a} JSON: {"score":0-10,"feedback":"ngắn"}`;
+    } else {
+        return `Grade ${level} ${topic}. Q: ${q} A: ${a} JSON: {"score":0-10,"feedback":"brief"}`;
+    }
 };
 
 /**
@@ -357,7 +351,13 @@ const generateTopicFeedback = async (topic, scores, level, language) => {
             throw new Error('Gemini API key not configured');
         }
 
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+        const model = genAI.getGenerativeModel({ 
+            model: GEMINI_MODEL,
+            generationConfig: {
+                maxOutputTokens: 80, // Limit output for topic feedback
+                temperature: 0.5
+            }
+        });
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text().trim();
@@ -383,25 +383,28 @@ const generateOverallFeedback = async (interviewId) => {
             return { success: false };
         }
 
-        const levelAssessment = compareWithLevelStandard(interview.totalScore, interview.level);
-        const topicScoresText = interview.TopicScores.map(ts => 
-            `${ts.topic}: ${ts.percentage.toFixed(1)}%`
-        ).join(', ');
-
-        const prompt = interview.language === 'vi'
-            ? `Tổng hợp kết quả phỏng vấn ảo cho trình độ ${interview.level}. Tổng điểm: ${interview.totalScore.toFixed(1)}/${interview.maxScore.toFixed(1)}. ${levelAssessment.message}. Điểm theo chủ đề: ${topicScoresText}. Đưa ra nhận xét tổng quan và gợi ý cải thiện. Trả lời BẰNG TIẾNG VIỆT. Chỉ trả về JSON: {"overallFeedback": "nhận xét tổng quan", "improvementSuggestions": "gợi ý cải thiện"}`
-            : `Summarize virtual interview results for ${interview.level} level. Total score: ${interview.totalScore.toFixed(1)}/${interview.maxScore.toFixed(1)}. ${levelAssessment.message}. Topic scores: ${topicScoresText}. Provide overall feedback and improvement suggestions. Respond in ENGLISH. Return only JSON: {"overallFeedback": "overall feedback", "improvementSuggestions": "improvement suggestions"}`;
+        // OPTIMIZATION: Truncate topic scores text to save tokens
+        const topicScoresTextShort = (interview.TopicScores || []).slice(0, 3).map(ts => 
+            `${ts.topic}:${ts.percentage.toFixed(0)}%`
+        ).join(',');
+        
+        const promptShort = interview.language === 'vi'
+            ? `Tổng hợp ${interview.level}. Điểm: ${interview.totalScore?.toFixed(0) || 0}/${interview.maxScore?.toFixed(0) || 100}. Topics: ${topicScoresTextShort}. JSON: {"overallFeedback":"ngắn","improvementSuggestions":"ngắn"}`
+            : `Summary ${interview.level}. Score: ${interview.totalScore?.toFixed(0) || 0}/${interview.maxScore?.toFixed(0) || 100}. Topics: ${topicScoresTextShort}. JSON: {"overallFeedback":"brief","improvementSuggestions":"brief"}`;
 
         if (!genAI) {
             throw new Error('Gemini API key not configured');
         }
 
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const fullPrompt = interview.language === 'vi'
-            ? 'Bạn là chuyên gia đánh giá phỏng vấn IT. Chỉ trả về JSON, không có text nào khác.\n\n' + prompt
-            : 'You are an IT interview evaluation expert. Return only JSON, no other text.\n\n' + prompt;
+        const model = genAI.getGenerativeModel({ 
+            model: GEMINI_MODEL,
+            generationConfig: {
+                maxOutputTokens: 150, // Limit output tokens
+                temperature: 0.5
+            }
+        });
         
-        const result_gemini = await model.generateContent(fullPrompt);
+        const result_gemini = await model.generateContent(promptShort);
         const response = await result_gemini.response;
         const responseText = response.text();
         const result = parseJSONFromResponse(responseText);

@@ -121,7 +121,13 @@ const generateQuestionForTopic = async (level, language, topic) => {
             throw new Error('Gemini API key not configured');
         }
 
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+        const model = genAI.getGenerativeModel({ 
+            model: GEMINI_MODEL,
+            generationConfig: {
+                maxOutputTokens: 200, // Limit output to save tokens
+                temperature: 0.7
+            }
+        });
         const result_gemini = await model.generateContent(prompt);
         const response = await result_gemini.response;
         const responseText = response.text();
@@ -201,34 +207,33 @@ const generateQuestionsForInterview = async (interviewId, questionCount = null) 
         // Generate questions for each topic
         for (const topic of topics) {
             for (let i = 0; i < questionsPerTopic; i++) {
-                const result = await generateQuestionForTopic(level, language, topic);
-                
-                if (result.success) {
-                    const validation = validateQuestion(result, level, language);
-                    
-                    if (validation.valid) {
-                        allQuestions.push({
-                            virtualInterviewId: interviewId,
-                            questionText: result.questionText,
-                            topic: topic,
-                            level: level,
-                            language: language,
-                            questionOrder: questionOrder++,
-                            maxScore: 10,
-                            difficulty: difficulty,
-                            questionType: questionType,
-                            metadata: {
-                                prompt: buildPromptForLanguage(level, topic, language),
-                                expectedAnswer: result.expectedAnswer,
-                                model: GEMINI_MODEL,
-                                generatedAt: new Date().toISOString()
-                            }
-                        });
+        const result = await generateQuestionForTopic(level, language, topic);
+        
+        if (result.success) {
+            const validation = validateQuestion(result, level, language);
+            
+            if (validation.valid) {
+                allQuestions.push({
+                    virtualInterviewId: interviewId,
+                    questionText: result.questionText,
+                    topic: topic,
+                    level: level,
+                    language: language,
+                    questionOrder: questionOrder++,
+                    maxScore: 10,
+                    difficulty: difficulty,
+                    questionType: questionType,
+                    metadata: {
+                        expectedAnswer: result.expectedAnswer,
+                        model: GEMINI_MODEL,
+                        generatedAt: new Date().toISOString()
                     }
-                }
-                
-                // Small delay to avoid overwhelming the AI
-                await new Promise(resolve => setTimeout(resolve, 500));
+                });
+            }
+        }
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay for free tier
             }
         }
 

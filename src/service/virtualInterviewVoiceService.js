@@ -14,61 +14,20 @@ if (!GEMINI_API_KEY) {
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 /**
- * Build system prompt for HR interviewer role
+ * Build system prompt for HR interviewer role (OPTIMIZED - MINIMAL TOKENS)
  */
 const buildSystemPrompt = (level, topics, language) => {
-    const levelDescriptions = {
-        'vi': {
-            'intern': 'Thực tập sinh - kiến thức cơ bản, khái niệm',
-            'junior': 'Nhân viên - ứng dụng thực tế, use case đơn giản',
-            'middle': 'Chuyên viên - tối ưu, xử lý edge case, best practice',
-            'senior': 'Chuyên gia - thiết kế hệ thống, trade-off, decision making'
-        },
-        'en': {
-            'intern': 'Intern - basic knowledge, concepts',
-            'junior': 'Junior - practical application, simple use cases',
-            'middle': 'Middle - optimization, edge cases, best practices',
-            'senior': 'Senior - system design, trade-offs, decision making'
-        }
+    const levelMap = {
+        'vi': { 'intern': 'Intern', 'junior': 'Junior', 'middle': 'Middle', 'senior': 'Senior' },
+        'en': { 'intern': 'Intern', 'junior': 'Junior', 'middle': 'Middle', 'senior': 'Senior' }
     };
-
-    const levelDesc = levelDescriptions[language]?.[level] || levelDescriptions['vi'][level];
-    const topicsList = Array.isArray(topics) ? topics.join(', ') : topics;
-
+    const topicsList = Array.isArray(topics) ? topics.slice(0, 3).join(',') : topics; // Limit topics
+    
+    // Ultra-minimal prompt to save tokens
     if (language === 'vi') {
-        return `Bạn là một HR chuyên nghiệp đang phỏng vấn ứng viên IT. 
-Ứng viên này ở trình độ: ${levelDesc}
-Chủ đề phỏng vấn: ${topicsList}
-
-Nhiệm vụ của bạn:
-1. Hỏi câu hỏi phù hợp với trình độ và chủ đề
-2. Lắng nghe câu trả lời và đánh giá
-3. Có thể hỏi follow-up questions để làm rõ
-4. Giữ thái độ chuyên nghiệp, thân thiện
-5. Kết thúc phỏng vấn sau khi đã đủ thông tin
-
-Quy tắc:
-- Mỗi lần chỉ hỏi 1 câu hỏi
-- Đợi ứng viên trả lời xong mới hỏi tiếp
-- Không tự trả lời thay ứng viên
-- Trả lời bằng TIẾNG VIỆT`;
+        return `HR phỏng vấn IT ${levelMap['vi'][level]}. Chủ đề: ${topicsList}. Hỏi 1 câu ngắn. Trả lời bằng TIẾNG VIỆT.`;
     } else {
-        return `You are a professional HR interviewer conducting an IT interview.
-The candidate is at level: ${levelDesc}
-Interview topics: ${topicsList}
-
-Your tasks:
-1. Ask appropriate questions for the level and topics
-2. Listen to answers and evaluate
-3. Can ask follow-up questions for clarification
-4. Maintain professional, friendly attitude
-5. End interview after gathering sufficient information
-
-Rules:
-- Ask only 1 question at a time
-- Wait for candidate's answer before asking next
-- Don't answer for the candidate
-- Respond in ENGLISH`;
+        return `HR interviewing IT ${levelMap['en'][level]}. Topics: ${topicsList}. Ask 1 short question. Respond in ENGLISH.`;
     }
 };
 
@@ -127,7 +86,7 @@ const startConversation = async (interviewId, userId) => {
 };
 
 /**
- * Generate first question using Gemini
+ * Generate first question using Gemini (OPTIMIZED - MINIMAL TOKENS)
  */
 const generateFirstQuestion = async (level, topics, language) => {
     try {
@@ -135,12 +94,19 @@ const generateFirstQuestion = async (level, topics, language) => {
             throw new Error('Gemini API key not configured');
         }
 
-        const topicsList = Array.isArray(topics) ? topics.join(', ') : topics;
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+        const topicsList = Array.isArray(topics) ? topics.slice(0, 2).join(',') : topics; // Limit to 2 topics
+        const model = genAI.getGenerativeModel({ 
+            model: GEMINI_MODEL,
+            generationConfig: {
+                maxOutputTokens: 50, // Limit output to save tokens
+                temperature: 0.7
+            }
+        });
         
+        // Ultra-minimal prompt
         const prompt = language === 'vi'
-            ? `Bạn là HR chuyên nghiệp đang phỏng vấn ứng viên IT trình độ ${level} về chủ đề ${topicsList}. Hãy đưa ra câu hỏi đầu tiên phù hợp, thân thiện và chuyên nghiệp. Chỉ trả về câu hỏi, không có text khác.`
-            : `You are a professional HR interviewing an IT candidate at ${level} level about ${topicsList}. Provide the first appropriate, friendly and professional question. Return only the question, no other text.`;
+            ? `HR hỏi IT ${level} về ${topicsList}. Câu hỏi đầu tiên ngắn gọn. Chỉ trả câu hỏi.`
+            : `HR asks IT ${level} about ${topicsList}. First short question. Return only question.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -157,6 +123,7 @@ const generateFirstQuestion = async (level, topics, language) => {
 
 /**
  * Process candidate's voice response and get AI response using Gemini
+ * OPTIMIZED: Only send last 2-3 messages to save tokens
  */
 const processVoiceResponse = async (interviewId, candidateText, conversationHistory = []) => {
     try {
@@ -177,21 +144,34 @@ const processVoiceResponse = async (interviewId, candidateText, conversationHist
             messageOrder: conversationHistory.length + 1
         });
 
-        // Build conversation context for Gemini
+        // OPTIMIZATION: Only use last 2-3 messages to save tokens
+        const recentHistory = conversationHistory.slice(-3); // Only last 3 messages
+        
+        // Build minimal prompt
         const systemPrompt = buildSystemPrompt(interview.level, interview.topics, interview.language);
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-
-        // Build conversation history string
-        let conversationText = systemPrompt + '\n\n';
-        conversationText += 'Conversation history:\n';
-        conversationHistory.forEach(msg => {
-            const role = msg.role === 'user' ? 'Candidate' : 'HR';
-            conversationText += `${role}: ${msg.content}\n`;
+        const model = genAI.getGenerativeModel({ 
+            model: GEMINI_MODEL,
+            generationConfig: {
+                maxOutputTokens: 100, // Limit output tokens
+                temperature: 0.7
+            }
         });
-        conversationText += `\nCandidate: ${candidateText}\nHR:`;
+
+        // Build minimal conversation context (only recent history)
+        let prompt = systemPrompt;
+        if (recentHistory.length > 0) {
+            prompt += '\n\nRecent:\n';
+            recentHistory.forEach(msg => {
+                const role = msg.role === 'user' ? 'C' : 'HR';
+                // Truncate long messages to save tokens
+                const content = msg.content.length > 200 ? msg.content.substring(0, 200) + '...' : msg.content;
+                prompt += `${role}: ${content}\n`;
+            });
+        }
+        prompt += `\nC: ${candidateText.substring(0, 300)}\nHR:`; // Truncate candidate text if too long
 
         // Get AI response
-        const result = await model.generateContent(conversationText);
+        const result = await model.generateContent(prompt);
         const response = await result.response;
         const aiResponse = response.text().trim();
 
