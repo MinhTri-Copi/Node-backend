@@ -111,9 +111,51 @@ const buildPromptForLanguage = (level, topic, language) => {
 };
 
 /**
- * Generate a single question for a topic
+ * Extract retry delay from Gemini API error (429 Too Many Requests)
  */
-const generateQuestionForTopic = async (level, language, topic) => {
+const extractRetryDelay = (error) => {
+    try {
+        // Gemini API error có structure: errorDetails[].retryDelay
+        if (error.errorDetails && Array.isArray(error.errorDetails)) {
+            for (const detail of error.errorDetails) {
+                if (detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo' && detail.retryDelay) {
+                    // retryDelay có thể là string "54s" hoặc object với seconds
+                    const delayStr = typeof detail.retryDelay === 'string' 
+                        ? detail.retryDelay 
+                        : detail.retryDelay.seconds || detail.retryDelay;
+                    const seconds = parseInt(delayStr.replace(/[^\d]/g, '')) || 60;
+                    return seconds * 1000; // Convert to milliseconds
+                }
+            }
+        }
+        // Fallback: parse từ error message
+        const match = error.message?.match(/retry.*?(\d+)\s*s/i);
+        if (match) {
+            return parseInt(match[1]) * 1000;
+        }
+    } catch (e) {
+        // Ignore parsing errors
+    }
+    return 60000; // Default: 60 seconds
+};
+
+/**
+ * Check if error is quota exceeded (429)
+ */
+const isQuotaExceeded = (error) => {
+    return error.status === 429 || 
+           error.message?.includes('quota') || 
+           error.message?.includes('429') ||
+           error.message?.includes('Too Many Requests');
+};
+
+/**
+ * Generate a single question for a topic with retry logic
+ */
+const generateQuestionForTopic = async (level, language, topic, retryCount = 0) => {
+    const maxRetries = 2; // Chỉ retry 2 lần để tránh spam
+    const maxRetryDelay = 300000; // Max 5 phút
+
     try {
         const prompt = buildPromptForLanguage(level, topic, language);
 
@@ -143,12 +185,32 @@ const generateQuestionForTopic = async (level, language, topic) => {
             success: true
         };
     } catch (error) {
-        console.error('Error generating question:', error);
+        // Check if quota exceeded - KHÔNG retry vì đây là daily limit, không phải rate limit tạm thời
+        if (isQuotaExceeded(error)) {
+            console.error('❌ Gemini API quota exceeded. Limit: 20 requests/day (free tier)');
+            console.error('   💡 Solutions:');
+            console.error('   1. Wait until tomorrow (quota resets daily)');
+            console.error('   2. Upgrade to paid tier for higher quota');
+            console.error('   3. Use LM Studio instead (configure LM_STUDIO_URL in .env)');
+            // KHÔNG retry vì quota là daily limit, retry sẽ vẫn fail
+        } else {
+            // Chỉ retry cho các lỗi khác (network, timeout, etc.)
+            if (retryCount < maxRetries) {
+                const retryDelay = 2000 * Math.pow(2, retryCount); // 2s, 4s
+                console.warn(`⚠️ Error generating question. Retrying in ${retryDelay / 1000}s... (attempt ${retryCount + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return generateQuestionForTopic(level, language, topic, retryCount + 1);
+            }
+            console.error('Error generating question:', error.message || error);
+        }
+
         return {
             questionText: null,
             expectedAnswer: null,
             success: false,
-            error: error.message
+            error: isQuotaExceeded(error) 
+                ? 'Gemini API quota exceeded (20 requests/day limit). Please try again tomorrow or upgrade to paid tier.'
+                : error.message || 'Unknown error'
         };
     }
 };
@@ -203,43 +265,72 @@ const generateQuestionsForInterview = async (interviewId, questionCount = null) 
 
         const allQuestions = [];
         let questionOrder = 1;
+        let quotaExceededCount = 0;
+        let failedCount = 0;
 
         // Generate questions for each topic
         for (const topic of topics) {
             for (let i = 0; i < questionsPerTopic; i++) {
-        const result = await generateQuestionForTopic(level, language, topic);
-        
-        if (result.success) {
-            const validation = validateQuestion(result, level, language);
-            
-            if (validation.valid) {
-                allQuestions.push({
-                    virtualInterviewId: interviewId,
-                    questionText: result.questionText,
-                    topic: topic,
-                    level: level,
-                    language: language,
-                    questionOrder: questionOrder++,
-                    maxScore: 10,
-                    difficulty: difficulty,
-                    questionType: questionType,
-                    metadata: {
-                        expectedAnswer: result.expectedAnswer,
-                        model: GEMINI_MODEL,
-                        generatedAt: new Date().toISOString()
+                const result = await generateQuestionForTopic(level, language, topic);
+                
+                if (result.success) {
+                    const validation = validateQuestion(result, level, language);
+                    
+                    if (validation.valid) {
+                        allQuestions.push({
+                            virtualInterviewId: interviewId,
+                            questionText: result.questionText,
+                            topic: topic,
+                            level: level,
+                            language: language,
+                            questionOrder: questionOrder++,
+                            maxScore: 10,
+                            difficulty: difficulty,
+                            questionType: questionType,
+                            metadata: {
+                                expectedAnswer: result.expectedAnswer,
+                                model: GEMINI_MODEL,
+                                generatedAt: new Date().toISOString()
+                            }
+                        });
                     }
-                });
+                } else {
+                    failedCount++;
+                    // Check if error is quota exceeded
+                    if (result.error && result.error.includes('quota exceeded')) {
+                        quotaExceededCount++;
+                        // Nếu quota exceeded, dừng lại để tránh spam requests
+                        if (quotaExceededCount >= 2) {
+                            console.warn(`⚠️ Quota exceeded detected ${quotaExceededCount} times. Stopping generation to avoid further quota issues.`);
+                            break;
+                        }
+                    }
+                }
+                
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay for free tier
             }
-        }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased delay for free tier
+            
+            // Nếu đã quota exceeded nhiều lần, dừng generate cho các topic còn lại
+            if (quotaExceededCount >= 2) {
+                break;
             }
         }
 
+        // Thông báo kết quả
+        if (quotaExceededCount > 0) {
+            console.warn(`⚠️ ${quotaExceededCount} câu hỏi bị lỗi do quota exceeded (Gemini API free tier: 20 requests/day)`);
+        }
+        if (failedCount > 0 && quotaExceededCount === 0) {
+            console.warn(`⚠️ ${failedCount} câu hỏi không thể generate`);
+        }
+
         if (allQuestions.length === 0) {
+            const errorMessage = quotaExceededCount > 0
+                ? `Không thể sinh câu hỏi! Gemini API quota exceeded (20 requests/day limit). Vui lòng thử lại sau hoặc nâng cấp lên paid tier.`
+                : 'Không thể sinh câu hỏi!';
             return {
-                EM: 'Không thể sinh câu hỏi!',
+                EM: errorMessage,
                 EC: 2,
                 DT: null
             };
@@ -254,8 +345,16 @@ const generateQuestionsForInterview = async (interviewId, questionCount = null) 
         interview.startedAt = new Date();
         await interview.save();
 
+        // Build success message với warning nếu có
+        let successMessage = `Sinh ${createdQuestions.length} câu hỏi thành công!`;
+        if (quotaExceededCount > 0) {
+            successMessage += ` (${quotaExceededCount} câu bị lỗi do quota exceeded - Gemini API free tier: 20 requests/day)`;
+        } else if (failedCount > 0) {
+            successMessage += ` (${failedCount} câu không thể generate)`;
+        }
+
         return {
-            EM: `Sinh ${createdQuestions.length} câu hỏi thành công!`,
+            EM: successMessage,
             EC: 0,
             DT: createdQuestions
         };
